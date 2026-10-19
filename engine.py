@@ -41,7 +41,7 @@ def hvn(P, i, price, direccion, nb=24, look=100):
     return hi if direccion == 1 else lo
 
 def nuevo_estado():
-    return {"fase": "idle", "side": 0, "ent": [], "t0": None, "mae1": 0.0, "tp": None}
+    return {"fase": "idle", "side": 0, "ent": [], "t0": None, "mae1": 0.0, "tp": None, "trail": False, "peak": None, "stop": None}
 
 def _avgp(ent): return len(ent) / sum(1 / p for p in ent)
 
@@ -66,6 +66,17 @@ def paso(st, P, j, cfg, L_flujo=5):
     if st['fase'] == 'open':
         sd = st['side']; ent = st['ent']
         atr = P['atr'][j - 1]
+        tx = cfg.get('trail_x')
+        if st.get('trail'):
+            # TP con trailing: vela posterior al disparo, orden adverso primero (igual que bt/osc4.py trail=1)
+            if (sd == 1 and l[j] <= st['stop']) or (sd == -1 and h[j] >= st['stop']):
+                cyc = dict(side=sd, ini=st['t0'], fin=str(P['idx'][j]), ent=list(ent), n_ent=len(ent), salida=float(st['stop']),
+                           res='trail', mae1=st['mae1'])
+                st.update(fase='idle', side=0, ent=[], t0=None, mae1=0.0, tp=None, trail=False, peak=None, stop=None)
+                return cyc
+            st['peak'] = float(max(st['peak'], h[j]) if sd == 1 else min(st['peak'], l[j]))
+            st['stop'] = float(max(st['tp'], st['peak'] - tx * atr) if sd == 1 else min(st['tp'], st['peak'] + tx * atr))
+            return None
         changed = False
         while len(ent) < cfg['max_e']:
             lvl = ent[-1] - sd * cfg['dca'] * atr
@@ -81,11 +92,17 @@ def paso(st, P, j, cfg, L_flujo=5):
             slp = ap * (1 - sd * cfg['sl_dist'] / 100)
             if (sd == 1 and l[j] <= slp) or (sd == -1 and h[j] >= slp): ex, res = slp, 'sl'
         if res is None and L_flujo * w1 <= -95: res = 'liq'
-        if res is None and ((sd == 1 and h[j] >= st['tp']) or (sd == -1 and l[j] <= st['tp'])): ex, res = st['tp'], 'tp'
+        if res is None and ((sd == 1 and h[j] >= st['tp']) or (sd == -1 and l[j] <= st['tp'])):
+            if tx and ((sd == 1 and P['c'][j] > st['tp']) or (sd == -1 and P['c'][j] < st['tp'])):
+                # cerró más allá del TP: no se cierra, se activa el trailing (stop nunca por debajo del TP)
+                st.update(trail=True, peak=float(P['c'][j]))
+                st['stop'] = float(max(st['tp'], st['peak'] - tx * atr) if sd == 1 else min(st['tp'], st['peak'] + tx * atr))
+                return None
+            ex, res = st['tp'], 'tp'
         if res is not None:
             cyc = dict(side=sd, ini=st['t0'], fin=str(P['idx'][j]), ent=list(ent), n_ent=len(ent), salida=None if ex is None else float(ex),
                        res=res, mae1=st['mae1'])
-            st.update(fase='idle', side=0, ent=[], t0=None, mae1=0.0, tp=None)
+            st.update(fase='idle', side=0, ent=[], t0=None, mae1=0.0, tp=None, trail=False, peak=None, stop=None)
             return cyc
         return None
     # idle: evalúa señal al cierre de esta vela (la vela en que cerró un ciclo ya retornó arriba, igual que la sim)
