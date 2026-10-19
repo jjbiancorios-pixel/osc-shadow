@@ -25,12 +25,21 @@ def _binance(moneda, limit):
     if not isinstance(r, list) or not r: raise ValueError(f"Binance sin datos {moneda}: {str(r)[:120]}")
     return _a_df([(k[0], k[1], k[2], k[3], k[4], k[5]) for k in r])
 
+def _con_reintentos(f, moneda, limit):
+    """BingX devuelve 100410 ('reintentá más tarde') cuando se le consulta demasiado: se reintenta con espera creciente."""
+    esperas = list(config.REINTENTOS_ESPERA_S)
+    while True:
+        try: return f(moneda, limit)
+        except Exception:
+            if not esperas: raise
+            time.sleep(esperas.pop(0))
+
 def velas_cerradas(moneda, limit=config.VELAS_1H):
     """Devuelve (df, fuente). Quita la vela en formación."""
     err = []
     for fuente, f in (("bingx", _bingx), ("binance", _binance)):
         try:
-            df = f(moneda, limit)
+            df = _con_reintentos(f, moneda, limit) if fuente == "bingx" else f(moneda, limit)
             ahora = pd.Timestamp(datetime.now(timezone.utc).replace(tzinfo=None))
             df = df[df.index + pd.Timedelta(hours=1) <= ahora + pd.Timedelta(seconds=2)]
             if len(df) < 300: raise ValueError(f"pocas velas ({len(df)})")

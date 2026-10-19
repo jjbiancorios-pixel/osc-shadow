@@ -28,3 +28,8 @@ F_MARGEN = 0.01        # 1% del capital como margen por entrada (para el reporte
 K_SIMULTANEOS = 8      # tope de ciclos simultáneos en el reporte de cartera
 VELAS_1H = 700         # ~29 días: calentamiento ADX/RSI + 100 velas de 4h para VPVR
 HORA_RESUMEN_ARG = 21  # resumen diario por Telegram (hora Argentina)
+
+PAUSA_ENTRE_MONEDAS_S = 0.8          # BingX limita consultas: más espacio entre monedas
+REINTENTOS_ESPERA_S = (2, 5, 10)     # esperas de los reintentos por moneda (BingX código 100410)
+PAUSA_SEGUNDA_RONDA_S = 20           # espera antes de reintentar las monedas que fallaron en la pasada
+ALERTA_FALLOS_SEGUIDOS = 2           # aviso por Telegram solo si una moneda falla en este nº de pasadas seguidas

@@ -37,15 +37,31 @@ def procesar_moneda(m):
     return cerrados
 
 def ciclo_horario():
-    ok = fallos = cerrados = 0; errores = []
-    for m in config.MONEDAS:
-        try: cerrados += procesar_moneda(m); ok += 1
-        except Exception as e:
-            fallos += 1; errores.append(f"{m}: {str(e)[:90]}")
-        time.sleep(0.25)
-    log(f"ciclo: {ok} monedas ok, {fallos} con error, {cerrados} ciclos cerrados")
-    if errores: log("errores:", " | ".join(errores[:6]))
-    return ok, fallos, errores
+    ok = cerrados = 0; fallidas = {}
+    def intentar(mon):
+        nonlocal ok, cerrados
+        try: cerrados += procesar_moneda(mon); ok += 1; fallidas.pop(mon, None); return True
+        except Exception as e: fallidas[mon] = str(e)[:90]; return False
+    for mon in config.MONEDAS:
+        intentar(mon); time.sleep(config.PAUSA_ENTRE_MONEDAS_S)
+    if fallidas:
+        log(f"primera ronda: {len(fallidas)} monedas con error, se reintentan en {config.PAUSA_SEGUNDA_RONDA_S}s")
+        time.sleep(config.PAUSA_SEGUNDA_RONDA_S)
+        for mon in list(fallidas):
+            intentar(mon); time.sleep(config.PAUSA_ENTRE_MONEDAS_S)
+    # contador de pasadas seguidas con fallo por moneda; aviso solo al llegar al umbral (una vez)
+    nuevas_alertas = []
+    for mon in config.MONEDAS:
+        k = "fallos_" + mon
+        if mon in fallidas:
+            n = int(db.meta_get(k, 0)) + 1; db.meta_set(k, n)
+            if n == config.ALERTA_FALLOS_SEGUIDOS: nuevas_alertas.append(f"{mon}: {fallidas[mon]}")
+        elif int(db.meta_get(k, 0)) > 0: db.meta_set(k, 0)
+    if nuevas_alertas:
+        tg.enviar("⚠️ SHADOW: sin datos de BingX en %d pasadas seguidas para:\n%s" % (config.ALERTA_FALLOS_SEGUIDOS, "\n".join(nuevas_alertas[:10])))
+    log(f"ciclo: {ok} monedas ok, {len(fallidas)} con error, {cerrados} ciclos cerrados")
+    if fallidas: log("errores:", " | ".join(f"{k}: {v}" for k, v in list(fallidas.items())[:10]))
+    return ok, len(fallidas), [f"{k}: {v}" for k, v in fallidas.items()]
 
 def manejar(cmd):
     p = cmd.split(); c = p[0].lower().split("@")[0]
