@@ -1,5 +1,6 @@
 """data.py — velas 1h públicas (sin firma). BingX primero, Binance como respaldo. Devuelve solo velas CERRADAS."""
 import time, requests, pandas as pd
+from datetime import datetime, timezone
 import config
 
 def _a_df(rows):
@@ -30,7 +31,7 @@ def velas_cerradas(moneda, limit=config.VELAS_1H):
     for fuente, f in (("bingx", _bingx), ("binance", _binance)):
         try:
             df = f(moneda, limit)
-            ahora = pd.Timestamp.utcnow().tz_localize(None)
+            ahora = pd.Timestamp(datetime.now(timezone.utc).replace(tzinfo=None))
             df = df[df.index + pd.Timedelta(hours=1) <= ahora + pd.Timedelta(seconds=2)]
             if len(df) < 300: raise ValueError(f"pocas velas ({len(df)})")
             # huecos: la serie debe ser continua en las últimas 100 velas
