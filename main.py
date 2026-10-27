@@ -28,10 +28,14 @@ def procesar_moneda(m):
         for j in nuevas:
             c = engine.paso(st, P, j, cfg, config.L_FLUJO)
             if c:
-                pn = {L: (-100.0 if c['res'] == 'liq' else float(engine.pnl_puntos(c['ent'], c['salida'], c['side'], L, cfg['fee']))) for L in config.L_REPORTE}
+                if c.get('L'):   # apalancamiento variable: el PnL se calcula con el apalancamiento real del ciclo
+                    pv = -100.0 if c['res'] == 'liq' else float(engine.pnl_puntos(c['ent'], c['salida'], c['side'], c['L'], cfg['fee']))
+                    pn = {L: pv for L in config.L_REPORTE}
+                else:
+                    pn = {L: (-100.0 if c['res'] == 'liq' else float(engine.pnl_puntos(c['ent'], c['salida'], c['side'], L, cfg['fee']))) for L in config.L_REPORTE}
                 db.guardar_ciclo(k, m, c, pn[3], pn[5]); cerrados += 1
                 if c['res'] in ('sl', 'liq'):
-                    tg.enviar(f"🔴 SHADOW {k} {m} {'LARGO' if c['side']==1 else 'CORTO'} cerró por {c['res'].upper()} con {c['n_ent']} entradas: {pn[5]:+.1f}% margen a 5x")
+                    tg.enviar(f"🔴 SHADOW {k} {m} {'LARGO' if c['side']==1 else 'CORTO'} cerró por {c['res'].upper()} con {c['n_ent']} entradas: {pn[5]:+.1f}% margen a {c.get('L') or 5:.0f}x")
         db.estado_set(m, k, st)
     db.set_ultima_vela(m, ts_last, fuente)
     return cerrados
@@ -119,7 +123,7 @@ def main():
     db.init()
     log("Bot Oscilación SHADOW arrancando. DB:", config.DB_PATH)
     ok, fallos, errores = ciclo_horario()
-    tg.enviar(f"🧪 <b>Bot Oscilación SHADOW</b> arrancó (sin dinero, sin órdenes).\nMonedas leídas: {ok}/{len(config.MONEDAS)}. Configs: A, B, C, D en paralelo (D = B + trailing).\n"
+    tg.enviar(f"🧪 <b>Bot Oscilación SHADOW</b> arrancó (sin dinero, sin órdenes).\nMonedas leídas: {ok}/{len(config.MONEDAS)}. Configs: A, B, C, D, E, F en paralelo (D = B + trailing; E y F = fix22 con apalancamiento variable por ATR%).\n"
               + ("Con error: " + "; ".join(errores[:8]) if errores else "")
               + ("\nComandos: /resumen [días] /abiertos /csv" if config.ACEPTA_COMANDOS else "\nSolo envía (resumen diario 21:00 + CSV). Para comandos definí OSC_TELEGRAM_TOKEN."))
     recolectar_mstrx()

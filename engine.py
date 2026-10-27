@@ -40,6 +40,14 @@ def hvn(P, i, price, direccion, nb=24, look=100):
     if len(cand): return cand[np.argmin(np.abs(cand - price))]
     return hi if direccion == 1 else lo
 
+def _lev_senal(P, j, cfg):
+    """Apalancamiento por ciclo = min(lev_max, lev_k / ATR%) (mínimo 3x), con el ATR% de la vela de la señal. None si la config usa apalancamiento fijo."""
+    k = cfg.get('lev_k')
+    if not k: return None
+    atrp = P['atr'][j] / P['c'][j] * 100
+    if atrp != atrp or atrp <= 0: return float(cfg.get('lev_max', 20))
+    return float(max(3.0, min(cfg.get('lev_max', 20), k / atrp)))
+
 def nuevo_estado():
     return {"fase": "idle", "side": 0, "ent": [], "t0": None, "mae1": 0.0, "tp": None, "trail": False, "peak": None, "stop": None}
 
@@ -71,8 +79,8 @@ def paso(st, P, j, cfg, L_flujo=5):
             # TP con trailing: vela posterior al disparo, orden adverso primero (igual que bt/osc4.py trail=1)
             if (sd == 1 and l[j] <= st['stop']) or (sd == -1 and h[j] >= st['stop']):
                 cyc = dict(side=sd, ini=st['t0'], fin=str(P['idx'][j]), ent=list(ent), n_ent=len(ent), salida=float(st['stop']),
-                           res='trail', mae1=st['mae1'])
-                st.update(fase='idle', side=0, ent=[], t0=None, mae1=0.0, tp=None, trail=False, peak=None, stop=None)
+                           res='trail', mae1=st['mae1'], L=st.get('L'))
+                st.update(fase='idle', side=0, ent=[], t0=None, mae1=0.0, tp=None, trail=False, peak=None, stop=None, L=None)
                 return cyc
             st['peak'] = float(max(st['peak'], h[j]) if sd == 1 else min(st['peak'], l[j]))
             st['stop'] = float(max(st['tp'], st['peak'] - tx * atr) if sd == 1 else min(st['tp'], st['peak'] + tx * atr))
@@ -91,7 +99,8 @@ def paso(st, P, j, cfg, L_flujo=5):
         if len(ent) >= cfg['max_e'] and cfg['sl_dist'] is not None:
             slp = ap * (1 - sd * cfg['sl_dist'] / 100)
             if (sd == 1 and l[j] <= slp) or (sd == -1 and h[j] >= slp): ex, res = slp, 'sl'
-        if res is None and L_flujo * w1 <= -95: res = 'liq'
+        L_c = st.get('L') or L_flujo
+        if res is None and L_c * w1 <= -95: res = 'liq'
         if res is None and ((sd == 1 and h[j] >= st['tp']) or (sd == -1 and l[j] <= st['tp'])):
             if tx and ((sd == 1 and P['c'][j] > st['tp']) or (sd == -1 and P['c'][j] < st['tp'])):
                 # cerró más allá del TP: no se cierra, se activa el trailing (stop nunca por debajo del TP)
@@ -101,13 +110,13 @@ def paso(st, P, j, cfg, L_flujo=5):
             ex, res = st['tp'], 'tp'
         if res is not None:
             cyc = dict(side=sd, ini=st['t0'], fin=str(P['idx'][j]), ent=list(ent), n_ent=len(ent), salida=None if ex is None else float(ex),
-                       res=res, mae1=st['mae1'])
-            st.update(fase='idle', side=0, ent=[], t0=None, mae1=0.0, tp=None, trail=False, peak=None, stop=None)
+                       res=res, mae1=st['mae1'], L=st.get('L'))
+            st.update(fase='idle', side=0, ent=[], t0=None, mae1=0.0, tp=None, trail=False, peak=None, stop=None, L=None)
             return cyc
         return None
     # idle: evalúa señal al cierre de esta vela (la vela en que cerró un ciclo ya retornó arriba, igual que la sim)
     a = P['adx'][j]; r = P['rsi4'][j]
     if a == a and r == r and a < cfg['adx_th']:
-        if r <= cfg['rl']: st.update(fase='pending', side=1)
-        elif r >= cfg['rs']: st.update(fase='pending', side=-1)
+        if r <= cfg['rl']: st.update(fase='pending', side=1, L=_lev_senal(P, j, cfg))
+        elif r >= cfg['rs']: st.update(fase='pending', side=-1, L=_lev_senal(P, j, cfg))
     return None

@@ -21,6 +21,10 @@ CONFIGS = {
     "B": dict(BASE, nombre="B (ADX<25, RSI 38/62, DCA2.0, 6 ent.)",            adx_th=25, rl=38, rs=62, dca=2.0, max_e=6),
     "C": dict(BASE, nombre="C (ADX<30, RSI 40/60, DCA1.5, 6 ent.)",            adx_th=30, rl=40, rs=60, dca=1.5, max_e=6),
     "D": dict(BASE, nombre="D = B + TP con trailing 1xATR",                     adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0),
+    # E y F: mismas reglas de entrada que el Bot BingX (fix22) pero con apalancamiento POR CICLO = mín(lev_max, lev_k / ATR%), mínimo 3x.
+    # Su PnL se informa con el apalancamiento real de cada ciclo (las columnas 3x y 5x muestran el mismo valor).
+    "E": dict(BASE, nombre="E fix22 + apal. variable mín(20, 8/ATR%)",         adx_th=30, rl=38, rs=62, dca=2.0, max_e=6, lev_k=8,  lev_max=20),
+    "F": dict(BASE, nombre="F fix22 + apal. variable mín(20, 10/ATR%)",        adx_th=30, rl=38, rs=62, dca=2.0, max_e=6, lev_k=10, lev_max=20),
 }
 L_FLUJO = 5            # apalancamiento con el que se simula el flujo (liquidación a -95% de margen)
 L_REPORTE = (3, 5)     # apalancamientos para los que se informa el PnL

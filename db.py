@@ -15,6 +15,8 @@ def init():
             n_ent INTEGER, entradas TEXT, salida REAL, res TEXT, mae1 REAL, pnl3 REAL, pnl5 REAL, dur_h REAL);
         CREATE INDEX IF NOT EXISTS ix_c ON ciclos(cfg, ini);
         """)
+        try: c.execute("ALTER TABLE ciclos ADD COLUMN lev REAL")   # apalancamiento del ciclo (solo configs con apal. variable)
+        except sqlite3.OperationalError: pass
 def meta_get(k, d=None):
     with _lock, _con() as c:
         r = c.execute("SELECT v FROM meta WHERE k=?", (k,)).fetchone(); return r[0] if r else d
@@ -42,9 +44,9 @@ def estados_abiertos(cfg=None):
 def guardar_ciclo(cfg, sym, cyc, pnl3, pnl5):
     ini = datetime.fromisoformat(cyc['ini']); fin = datetime.fromisoformat(cyc['fin']) + timedelta(hours=1)
     with _lock, _con() as c:
-        c.execute("INSERT INTO ciclos(cfg,sym,side,ini,fin,n_ent,entradas,salida,res,mae1,pnl3,pnl5,dur_h) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        c.execute("INSERT INTO ciclos(cfg,sym,side,ini,fin,n_ent,entradas,salida,res,mae1,pnl3,pnl5,dur_h,lev) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                   (cfg, sym, cyc['side'], cyc['ini'], str(fin), cyc['n_ent'], json.dumps(cyc['ent']), cyc['salida'], cyc['res'],
-                   cyc['mae1'], pnl3, pnl5, (fin - ini).total_seconds() / 3600))
+                   cyc['mae1'], pnl3, pnl5, (fin - ini).total_seconds() / 3600, cyc.get('L')))
 def ciclos(cfg=None, desde=None):
     q = "SELECT * FROM ciclos WHERE 1=1"; a = []
     if cfg: q += " AND cfg=?"; a.append(cfg)

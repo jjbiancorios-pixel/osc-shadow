@@ -27,7 +27,8 @@ def resumen_cfg(cfg, desde=None):
     n = len(t)
     sl = sum(1 for c in t if c['res'] == 'sl'); liq = sum(1 for c in t if c['res'] == 'liq')
     ab = len(db.estados_abiertos(cfg))
-    return dict(n=n, win=(out[5][2] / n * 100 if n else 0), sl=sl, liq=liq, ab=ab, cap3=out[3][1], cap5=out[5][1],
+    lv = [c['lev'] for c in t if c.get('lev')]
+    return dict(n=n, win=(out[5][2] / n * 100 if n else 0), sl=sl, liq=liq, ab=ab, cap3=out[3][1], cap5=out[5][1], lev=(sum(lv) / len(lv) if lv else None),
                 dur=(sum(c['dur_h'] for c in t) / n if n else 0), ent=(sum(c['n_ent'] for c in t) / n if n else 0))
 
 def texto_resumen(desde=None, titulo="Resumen"):
@@ -36,7 +37,10 @@ def texto_resumen(desde=None, titulo="Resumen"):
         r = resumen_cfg(k, desde)
         l.append(f"<b>{cfg['nombre']}</b>")
         l.append(f"ciclos {r['n']} | win {r['win']:.0f}% | SL {r['sl']} | liq {r['liq']} | abiertos {r['ab']}")
-        l.append(f"capital 3x: <b>{r['cap3']:+.2f}%</b> | 5x: <b>{r['cap5']:+.2f}%</b> | dur {r['dur']:.1f}h | ent. prom {r['ent']:.1f}")
+        if r['lev'] is not None:
+            l.append(f"capital (apal. variable, prom {r['lev']:.1f}x): <b>{r['cap5']:+.2f}%</b> | dur {r['dur']:.1f}h | ent. prom {r['ent']:.1f}")
+        else:
+            l.append(f"capital 3x: <b>{r['cap3']:+.2f}%</b> | 5x: <b>{r['cap5']:+.2f}%</b> | dur {r['dur']:.1f}h | ent. prom {r['ent']:.1f}")
         l.append("")
     return "\n".join(l).strip()
 
@@ -51,8 +55,8 @@ def texto_abiertos():
 def csv_ciclos():
     import io, csv
     b = io.StringIO(); w = csv.writer(b)
-    w.writerow(['cfg','sym','side','ini_utc','fin_utc','n_ent','salida','res','mae1_pct','pnl3','pnl5','dur_h','entradas'])
+    w.writerow(['cfg','sym','side','ini_utc','fin_utc','n_ent','salida','res','mae1_pct','pnl3','pnl5','dur_h','entradas','lev'])
     for c in db.ciclos():
         w.writerow([c['cfg'], c['sym'], c['side'], c['ini'], c['fin'], c['n_ent'], c['salida'], c['res'], round(c['mae1'], 3),
-                    round(c['pnl3'], 3), round(c['pnl5'], 3), round(c['dur_h'], 1), c['entradas']])
+                    round(c['pnl3'], 3), round(c['pnl5'], 3), round(c['dur_h'], 1), c['entradas'], (round(c['lev'], 1) if c.get('lev') else '')])
     return b.getvalue().encode()
