@@ -1,5 +1,6 @@
 """reporte.py — métricas de cartera idénticas a las del backtest (f=1% de margen por entrada, tope K ciclos simultáneos)."""
 from datetime import datetime, timedelta
+from html import escape
 import config, db
 
 def cartera(cfg, L, desde=None):
@@ -35,7 +36,7 @@ def texto_resumen(desde=None, titulo="Resumen"):
     l = [f"📊 <b>Oscilación SHADOW — {titulo}</b> (sin dinero)", "Capital % con 1% de margen por entrada, máx. 8 ciclos simultáneos", ""]
     for k, cfg in config.CONFIGS.items():
         r = resumen_cfg(k, desde)
-        l.append(f"<b>{cfg['nombre']}</b>")
+        l.append(f"<b>{escape(cfg['nombre'])}</b>")
         l.append(f"ciclos {r['n']} | win {r['win']:.0f}% | SL {r['sl']} | liq {r['liq']} | abiertos {r['ab']}")
         if r['lev'] is not None:
             l.append(f"capital (apal. variable, prom {r['lev']:.1f}x): <b>{r['cap5']:+.2f}%</b> | dur {r['dur']:.1f}h | ent. prom {r['ent']:.1f}")
