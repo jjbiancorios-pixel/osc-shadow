@@ -40,7 +40,29 @@ def procesar_moneda(m):
     db.set_ultima_vela(m, ts_last, fuente)
     return cerrados
 
+def actualizar_btc():
+    """Carga el contexto de BTC (caída/suba 7d, 24h) para la protección de la config I y avisa por Telegram si cambia el estado."""
+    try:
+        df, _ = data.velas_cerradas("BTC")
+        c = df["c"]
+        dd = (c / c.rolling(168).max() - 1) * 100
+        up = (c / c.rolling(168).min() - 1) * 100
+        r24 = c.pct_change(24) * 100
+        engine.BTC_CTX = {str(t): (float(a), float(b), float(d)) for t, a, b, d in zip(df.index, dd, up, r24) if a == a and b == b and d == d}
+        cfg = config.CONFIGS["I"]
+        est = engine.btc_estado(df.index[-1], cfg)
+        prev = db.meta_get("btc_estado", "ok")
+        if est != prev:
+            db.meta_set("btc_estado", est)
+            txt = {"ok": "✅ BTC en condiciones normales: la config I vuelve a abrir largos y cortos.",
+                   "sin_largos": "🟠 BTC cayó ≥5% desde su máx. de 7 días: la config I NO abre largos nuevos (cortos sí).",
+                   "stop": "🛑 BTC en condiciones EXTREMAS (fuera de lo visto en 200 días): la config I NO abre ciclos nuevos."}[est]
+            tg.enviar(f"{txt}\nBTC: {dd.iloc[-1]:+.1f}% vs máx 7d · {up.iloc[-1]:+.1f}% vs mín 7d · {r24.iloc[-1]:+.1f}% en 24h")
+    except Exception as e:
+        log("⚠️ no se pudo actualizar el contexto de BTC (la protección de I queda sin bloquear):", str(e)[:100])
+
 def ciclo_horario():
+    actualizar_btc()
     ok = cerrados = 0; fallidas = {}
     def intentar(mon):
         nonlocal ok, cerrados
@@ -130,7 +152,7 @@ def main():
     db.init()
     log("Bot Oscilación SHADOW arrancando. DB:", config.DB_PATH)
     ok, fallos, errores = ciclo_horario()
-    tg.enviar(f"🧪 <b>Bot Oscilación SHADOW</b> arrancó (sin dinero, sin órdenes).\nMonedas leídas: {ok}/{len(config.MONEDAS)}. Configs: A–H en paralelo (D = B + trailing; E y F = fix22 con apalancamiento variable por ATR%; G y H = F con otra salida).\n"
+    tg.enviar(f"🧪 <b>Bot Oscilación SHADOW</b> arrancó (sin dinero, sin órdenes).\nMonedas leídas: {ok}/{len(config.MONEDAS)}. Configs: A–I en paralelo (D = B + trailing; E y F = fix22 con apalancamiento variable por ATR%; G y H = F con otra salida; I = B + protección por BTC).\n"
               + ("Con error: " + "; ".join(errores[:8]) if errores else "")
               + ("\nComandos: /resumen [días] /abiertos /csv" if config.ACEPTA_COMANDOS else "\nSolo envía (resumen diario 21:00 + CSV). Para comandos definí OSC_TELEGRAM_TOKEN."))
     recolectar_mstrx()

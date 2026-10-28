@@ -48,6 +48,20 @@ def _lev_senal(P, j, cfg):
     if atrp != atrp or atrp <= 0: return float(cfg.get('lev_max', 20))
     return float(max(3.0, min(cfg.get('lev_max', 20), k / atrp)))
 
+# Contexto de BTC por vela 1h (clave: apertura de la vela como str) -> (caída % desde máx. 7d, suba % desde mín. 7d, variación % 24h).
+# Lo carga main.py antes de procesar las monedas. Solo lo usan las configs con btc_dd (protección BTC).
+BTC_CTX = {}
+
+def btc_estado(ts, cfg):
+    """'ok' | 'sin_largos' | 'stop' según BTC en la vela ts. Sin dato: 'ok' (no bloquea)."""
+    if not cfg.get('btc_dd'): return 'ok'
+    x = BTC_CTX.get(str(ts))
+    if x is None: return 'ok'
+    dd, up, r24 = x
+    if dd <= -cfg['btc_stop_dd'] or up >= cfg['btc_stop_up'] or r24 <= -cfg['btc_stop_r24'] or r24 >= cfg['btc_stop_r24_up']: return 'stop'
+    if dd <= -cfg['btc_dd']: return 'sin_largos'
+    return 'ok'
+
 def nuevo_estado():
     return {"fase": "idle", "side": 0, "ent": [], "t0": None, "mae1": 0.0, "tp": None, "trail": False, "peak": None, "stop": None}
 
@@ -117,6 +131,10 @@ def paso(st, P, j, cfg, L_flujo=5):
     # idle: evalúa señal al cierre de esta vela (la vela en que cerró un ciclo ya retornó arriba, igual que la sim)
     a = P['adx'][j]; r = P['rsi4'][j]
     if a == a and r == r and a < cfg['adx_th']:
-        if r <= cfg['rl']: st.update(fase='pending', side=1, L=_lev_senal(P, j, cfg))
+        bs = btc_estado(P['idx'][j], cfg)
+        if bs == 'stop': return None
+        if r <= cfg['rl']:
+            if bs == 'sin_largos': return None
+            st.update(fase='pending', side=1, L=_lev_senal(P, j, cfg))
         elif r >= cfg['rs']: st.update(fase='pending', side=-1, L=_lev_senal(P, j, cfg))
     return None

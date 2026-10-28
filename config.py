@@ -28,6 +28,11 @@ CONFIGS = {
     # G y H: F con salida modificada (solo cambia el SL y/o el TP mínimo; la entrada es idéntica a F).
     "G": dict(BASE, nombre="G = F con SL 1,5% (desde el promedio)",             adx_th=30, rl=38, rs=62, dca=2.0, max_e=6, lev_k=10, lev_max=20, sl_dist=1.5),
     "H": dict(BASE, nombre="H = F con SL 2,0% y TP mín. 0,5%",                  adx_th=30, rl=38, rs=62, dca=2.0, max_e=6, lev_k=10, lev_max=20, sl_dist=2.0, tp_min=0.5),
+    # I: B (5x fijo) + protección por BTC. Sin largos nuevos si BTC cae >=5% desde su máx. de 7 días; STOP total (ni largos ni cortos nuevos)
+    # si BTC supera los extremos del período de análisis (200 días): caída 7d >=20%, suba 7d >=27%, 24h <=-7,5% o >=+12%.
+    # Los ciclos ya abiertos siguen su curso (TP/SL normales). Se reanuda solo cuando BTC vuelve a las condiciones normales.
+    "I": dict(BASE, nombre="I = B + protección BTC (sin largos si BTC -5% de máx. 7d; STOP en extremos)", adx_th=25, rl=38, rs=62, dca=2.0, max_e=6,
+              btc_dd=5.0, btc_stop_dd=20.0, btc_stop_up=27.0, btc_stop_r24=7.5, btc_stop_r24_up=12.0),
 }
 L_FLUJO = 5            # apalancamiento con el que se simula el flujo (liquidación a -95% de margen)
 L_REPORTE = (3, 5)     # apalancamientos para los que se informa el PnL
