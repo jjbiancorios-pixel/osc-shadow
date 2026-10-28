@@ -13,6 +13,8 @@ VARIANTES = {
     "M3": dict(BASE, lev=10, w=0.10, sl=None, nombre="10x ±10% sin SL"),
     "M4": dict(BASE, lev=8, w=0.20, sl=None, nombre="8x ±20% sin SL"),
     "M5": dict(BASE, lev=5, w=0.20, sl=None, nombre="5x ±20% sin SL"),
+    # M6 = M2 que SOLO abre (y reabre) cuando la volatilidad de BTC es baja: ATR(14) de velas 1h cerradas < 0,35% del precio.
+    "M6": dict(BASE, lev=10, w=0.10, sl=-0.60, nombre="10x ±10% SL -60% + solo con ATR BTC<0,35%", filtro_atr=0.35),
 }
 
 def init_tablas():
@@ -68,6 +70,24 @@ def _ultima_vela():
         r = c.execute("SELECT ts,c FROM mstrx_velas WHERE par=? AND tf=? ORDER BY ts DESC LIMIT 1", (PAR, TF)).fetchone()
     return r
 
+def atr_btc_pct(fin_ms):
+    """ATR(14) de las velas 1h CERRADAS de BTC/USDT (Pionex) a la hora fin_ms, en % del último cierre. None si faltan datos."""
+    with db._lock, db._con() as c:
+        rows = c.execute("SELECT ts,h,l,c FROM mstrx_velas WHERE par='BTC_USDT' AND tf='60M' AND ts<=? ORDER BY ts DESC LIMIT 15", (fin_ms - 3600*1000,)).fetchall()
+    if len(rows) < 15: return None
+    rows = rows[::-1]; trs = []
+    for k in range(1, 15):
+        _, h, l, c = rows[k]; pc = rows[k-1][3]
+        trs.append(max(h - l, abs(h - pc), abs(l - pc)))
+    return sum(trs) / 14 / rows[-1][3] * 100
+
+def _puede_abrir(v, fin_ms):
+    """True si la variante no tiene filtro, o si el filtro de volatilidad de BTC lo permite."""
+    f = v.get("filtro_atr")
+    if f is None: return True
+    a = atr_btc_pct(fin_ms)
+    return a is not None and a < f
+
 def procesar():
     """Una pasada: avanza todas las variantes con las velas 15m nuevas. Devuelve cantidad de ciclos cerrados."""
     init_tablas(); cerrados = 0
@@ -78,10 +98,14 @@ def procesar():
             r = c.execute("SELECT st FROM mstrx_estado WHERE var=?", (nom,)).fetchone()
         if r: stt = json.loads(r[0])
         else:   # primera vez: arranca en el cierre de la última vela disponible
-            stt = dict(cyc=nuevo(ult[1], v, ult[0]), last=ult[0])
+            stt = dict(cyc=(nuevo(ult[1], v, ult[0]) if _puede_abrir(v, ult[0] + 15*60*1000) else None), last=ult[0])
             with db._lock, db._con() as c: c.execute("INSERT OR REPLACE INTO mstrx_estado VALUES(?,?)", (nom, json.dumps(stt)))
             continue
         for ts, o, h, l, cl in _velas_nuevas(stt["last"]):
+            if stt["cyc"] is None:   # esperando que el filtro permita abrir
+                stt["last"] = ts
+                if _puede_abrir(v, ts + 15*60*1000): stt["cyc"] = nuevo(cl, v, ts + 15*60*1000)
+                continue
             res, pnl = paso(stt["cyc"], v, o, h, l, cl)
             stt["last"] = ts
             if res:
@@ -90,7 +114,7 @@ def procesar():
                     c.execute("INSERT INTO mstrx_ciclos(var,ini,fin,res,dur_h,mae,pnl) VALUES(?,?,?,?,?,?,?)",
                               (nom, cy["ini"], fin, res, cy["velas"]*0.25, cy["mae"], pnl))
                 cerrados += 1
-                stt["cyc"] = nuevo(cl, v, fin)   # reapertura inmediata en el cierre de la vela
+                stt["cyc"] = nuevo(cl, v, fin) if _puede_abrir(v, fin) else None   # reapertura inmediata si el filtro lo permite
         with db._lock, db._con() as c: c.execute("INSERT OR REPLACE INTO mstrx_estado VALUES(?,?)", (nom, json.dumps(stt)))
     return cerrados
 
@@ -106,8 +130,11 @@ def texto_resumen():
         if st:
             s = json.loads(st[0]); u = _ultima_vela()
             if u:
-                cy = s["cyc"]; e = _eq(cy, u[1])*100
-                abierto = f" | abierto: {e:+.1f}% del margen, peor {cy['mae']*100:.0f}%, {cy['velas']*0.25:.1f} h"
+                cy = s["cyc"]
+                if cy is None: abierto = " | sin ciclo abierto (esperando ATR de BTC bajo)"
+                else:
+                    e = _eq(cy, u[1])*100
+                    abierto = f" | abierto: {e:+.1f}% del margen, peor {cy['mae']*100:.0f}%, {cy['velas']*0.25:.1f} h"
         out.append(f"<b>{nom}</b> {v['nombre']}: {n} ciclos (TP {tp}, SL {sl}, liq {lq}) | suma {pnl:+.1f}% del margen | peor ciclo {peor:.0f}%{abierto}")
     return "\n".join(out)
 
