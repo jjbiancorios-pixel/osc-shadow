@@ -78,6 +78,11 @@ def recolectar_mstrx():
             if nc: log(f"mstrx_sim: {nc} ciclos cerrados")
         except Exception:
             log("mstrx_sim ERROR (no afecta al Shadow):", traceback.format_exc()[-400:])
+        try:
+            import patrones
+            patrones.actualizar()
+        except Exception:
+            log("patrones ERROR (no afecta al Shadow):", traceback.format_exc()[-400:])
         if avisos:
             k = "mstrx_aviso"; hoy = datetime.now(db.TZ_ARG).strftime("%Y%m%d%H")
             if db.meta_get(k) != hoy[:8]:
@@ -96,6 +101,8 @@ def manejar(cmd):
     if c == "/csv": tg.enviar_archivo("ciclos_shadow.csv", reporte.csv_ciclos(), "Ciclos cerrados"); return "CSV enviado."
     if c == "/mstrx":
         import mstrx_datos; return mstrx_datos.resumen()
+    if c == "/patrones":
+        import patrones; return patrones.texto()
     if c == "/mstrx_res":
         import mstrx_sim; return mstrx_sim.texto_resumen()
     if c == "/mstrx_ciclos":
@@ -105,7 +112,7 @@ def manejar(cmd):
         for par, tf in (("MSTRX_BTC", "15M"), ("MSTRX_BTC", "60M"), ("MSTRX_BTC", "4H"), ("BTC_USDT", "60M"), ("BTC_USDT", "4H")):
             tg.enviar_archivo(f"{par}_{tf}.csv", mstrx_datos.csv_velas(par, tf), f"{par} {tf}")
         return "CSV de MSTRX enviados."
-    if c == "/ayuda": return "/resumen [días] · /abiertos · /csv · /mstrx · /mstrx_csv · /mstrx_res · /mstrx_ciclos"
+    if c == "/ayuda": return "/resumen [días] · /abiertos · /csv · /mstrx · /mstrx_csv · /mstrx_res · /mstrx_ciclos · /patrones"
     return None
 
 def resumen_diario():
