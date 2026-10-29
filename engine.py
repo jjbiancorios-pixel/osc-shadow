@@ -52,14 +52,29 @@ def _lev_senal(P, j, cfg):
 # Lo carga main.py antes de procesar las monedas. Solo lo usan las configs con btc_dd (protección BTC).
 BTC_CTX = {}
 
+def btc_contexto(idx, dd, up, r24, cfg):
+    """Arma BTC_CTX con HISTÉRESIS (evita que el filtro se prenda y apague en el umbral):
+    - sin_largos: se activa con caída >= btc_dd desde el máx. 7d y se libera recién cuando la caída es < btc_dd_rel.
+    - stop: se activa al superar algún extremo y se libera cuando todos vuelven por debajo de btc_stop_rel x extremo."""
+    ctx = {}; sl = False; stp = False; f = cfg.get('btc_stop_rel', 0.8)
+    for t, a, b, d in zip(idx, dd, up, r24):
+        if a != a or b != b or d != d: continue
+        extremo = a <= -cfg['btc_stop_dd'] or b >= cfg['btc_stop_up'] or d <= -cfg['btc_stop_r24'] or d >= cfg['btc_stop_r24_up']
+        calma = a > -cfg['btc_stop_dd'] * f and b < cfg['btc_stop_up'] * f and d > -cfg['btc_stop_r24'] * f and d < cfg['btc_stop_r24_up'] * f
+        if not stp and extremo: stp = True
+        elif stp and calma: stp = False
+        if not sl and a <= -cfg['btc_dd']: sl = True
+        elif sl and a > -cfg.get('btc_dd_rel', cfg['btc_dd']): sl = False
+        ctx[str(t)] = (float(a), float(b), float(d), sl, stp)
+    return ctx
+
 def btc_estado(ts, cfg):
     """'ok' | 'sin_largos' | 'stop' según BTC en la vela ts. Sin dato: 'ok' (no bloquea)."""
     if not cfg.get('btc_dd'): return 'ok'
     x = BTC_CTX.get(str(ts))
     if x is None: return 'ok'
-    dd, up, r24 = x
-    if dd <= -cfg['btc_stop_dd'] or up >= cfg['btc_stop_up'] or r24 <= -cfg['btc_stop_r24'] or r24 >= cfg['btc_stop_r24_up']: return 'stop'
-    if dd <= -cfg['btc_dd']: return 'sin_largos'
+    if x[4]: return 'stop'
+    if x[3]: return 'sin_largos'
     return 'ok'
 
 def nuevo_estado():

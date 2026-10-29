@@ -48,14 +48,14 @@ def actualizar_btc():
         dd = (c / c.rolling(168).max() - 1) * 100
         up = (c / c.rolling(168).min() - 1) * 100
         r24 = c.pct_change(24) * 100
-        engine.BTC_CTX = {str(t): (float(a), float(b), float(d)) for t, a, b, d in zip(df.index, dd, up, r24) if a == a and b == b and d == d}
         cfg = config.CONFIGS["I"]
+        engine.BTC_CTX = engine.btc_contexto(df.index, dd, up, r24, cfg)
         est = engine.btc_estado(df.index[-1], cfg)
         prev = db.meta_get("btc_estado", "ok")
         if est != prev:
             db.meta_set("btc_estado", est)
             txt = {"ok": "✅ BTC en condiciones normales: la config I vuelve a abrir largos y cortos.",
-                   "sin_largos": "🟠 BTC cayó ≥5% desde su máx. de 7 días: la config I NO abre largos nuevos (cortos sí).",
+                   "sin_largos": "🟠 BTC cayó ≥5% desde su máx. de 7 días: la config I NO abre largos nuevos (cortos sí) hasta que BTC recupere a −4% o menos de caída.",
                    "stop": "🛑 BTC en condiciones EXTREMAS (fuera de lo visto en 200 días): la config I NO abre ciclos nuevos."}[est]
             tg.enviar(f"{txt}\nBTC: {dd.iloc[-1]:+.1f}% vs máx 7d · {up.iloc[-1]:+.1f}% vs mín 7d · {r24.iloc[-1]:+.1f}% en 24h")
     except Exception as e:

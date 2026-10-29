@@ -51,7 +51,7 @@ def texto_abiertos():
     l = [f"📂 <b>Ciclos abiertos ({len(ab)})</b>"]
     for s, c, st in sorted(ab, key=lambda x: (x[1], x[0])):
         l.append(f"{c} {s} {'L' if st['side']==1 else 'C'} ent {len(st['ent'])} desde {st['t0'][5:16]}Z")
-    return "\n".join(l[:60])
+    return "\n".join(l)
 
 def csv_ciclos():
     import io, csv
