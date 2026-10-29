@@ -16,6 +16,9 @@ MONEDAS = ["AAVE","ACE","ADA","APT","ARB","AVAX","BAT","BCH","BNB","BTC","DASH",
 
 # Mismas reglas que el simulador validado (osc.py). SL 3% desde el promedio recién tras la última entrada.
 BASE = dict(sl_dist=3.0, tp_off=0.5, tp_min=0.25, tp_fixed=1.0, fee=0.0005)
+# Protección por BTC (config I, J, K): sin largos nuevos si BTC cae >=5% desde su máx. de 7 días (se libera a -4%);
+# STOP total si BTC supera los extremos de los 200 días analizados. Los ciclos ya abiertos siguen su curso.
+BTC_PROT = dict(btc_dd=5.0, btc_dd_rel=4.0, btc_stop_rel=0.8, btc_stop_dd=20.0, btc_stop_up=27.0, btc_stop_r24=7.5, btc_stop_r24_up=12.0)
 CONFIGS = {
     "A": dict(BASE, nombre="A actual ETH (ADX<22, RSI 32/68, DCA1.5, 5 ent.)", adx_th=22, rl=32, rs=68, dca=1.5, max_e=5),
     "B": dict(BASE, nombre="B (ADX<25, RSI 38/62, DCA2.0, 6 ent.)",            adx_th=25, rl=38, rs=62, dca=2.0, max_e=6),
@@ -31,8 +34,10 @@ CONFIGS = {
     # I: B (5x fijo) + protección por BTC. Sin largos nuevos si BTC cae >=5% desde su máx. de 7 días; STOP total (ni largos ni cortos nuevos)
     # si BTC supera los extremos del período de análisis (200 días): caída 7d >=20%, suba 7d >=27%, 24h <=-7,5% o >=+12%.
     # Los ciclos ya abiertos siguen su curso (TP/SL normales). Se reanuda solo cuando BTC vuelve a las condiciones normales.
-    "I": dict(BASE, nombre="I = B + protección BTC (sin largos si BTC -5% de máx. 7d; STOP en extremos)", adx_th=25, rl=38, rs=62, dca=2.0, max_e=6,
-              btc_dd=5.0, btc_dd_rel=4.0, btc_stop_rel=0.8, btc_stop_dd=20.0, btc_stop_up=27.0, btc_stop_r24=7.5, btc_stop_r24_up=12.0),
+    "I": dict(BASE, nombre="I = B + protección BTC (sin largos si BTC -5% de máx. 7d; STOP en extremos)", adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, **BTC_PROT),
+    # J y K: mismas entradas/salidas que D y G pero con la protección BTC de I (histéresis: sin largos desde -5%, se libera a -4%).
+    "J": dict(BASE, nombre="J = D (B + trailing 1xATR) + protección BTC",                adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, **BTC_PROT),
+    "K": dict(BASE, nombre="K = G (F con SL 1,5%) + protección BTC",                     adx_th=30, rl=38, rs=62, dca=2.0, max_e=6, lev_k=10, lev_max=20, sl_dist=1.5, **BTC_PROT),
 }
 L_FLUJO = 5            # apalancamiento con el que se simula el flujo (liquidación a -95% de margen)
 L_REPORTE = (3, 5)     # apalancamientos para los que se informa el PnL
