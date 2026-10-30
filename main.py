@@ -9,6 +9,10 @@ def log(*a): print(datetime.now(db.TZ_ARG).strftime("%d/%m %H:%M:%S"), *a, flush
 def procesar_moneda(m):
     df, fuente = data.velas_cerradas(m)
     P = engine.prep(df)
+    try:
+        import franco
+        x = engine.BTC_CTX.get(str(df.index[-1])); franco.actualizar(m, df, P['rsi4'], x[0] if x else None, tg.enviar)
+    except Exception: log("franco ERROR (no afecta al Shadow):", traceback.format_exc()[-300:])
     n = len(df)
     ult = db.ultima_vela(m)
     ts_last = str(df.index[-1])
@@ -134,7 +138,13 @@ def manejar(cmd):
         for par, tf in (("MSTRX_BTC", "15M"), ("MSTRX_BTC", "60M"), ("MSTRX_BTC", "4H"), ("BTC_USDT", "60M"), ("BTC_USDT", "4H")):
             tg.enviar_archivo(f"{par}_{tf}.csv", mstrx_datos.csv_velas(par, tf), f"{par} {tf}")
         return "CSV de MSTRX enviados."
-    if c == "/ayuda": return "/resumen [días] · /abiertos · /csv · /mstrx · /mstrx_csv · /mstrx_res · /mstrx_ciclos · /patrones"
+    if c == "/fr":
+        import franco; return franco.texto()
+    if c == "/fr_abiertos":
+        import franco; return franco.texto_abiertos()
+    if c == "/fr_csv":
+        import franco; tg.enviar_archivo("francotirador.csv", franco.csv_senales(), "Señales del Francotirador"); return "CSV del Francotirador enviado."
+    if c == "/ayuda": return "/resumen [días] · /abiertos · /csv · /mstrx · /mstrx_csv · /mstrx_res · /mstrx_ciclos · /patrones · /fr · /fr_abiertos · /fr_csv"
     return None
 
 def resumen_diario():
@@ -146,6 +156,9 @@ def resumen_diario():
         try:
             import mstrx_sim; tg.enviar(mstrx_sim.texto_resumen())
         except Exception: log("resumen mstrx ERROR:", traceback.format_exc()[-300:])
+        try:
+            import franco; tg.enviar(franco.texto())
+        except Exception: log("resumen franco ERROR:", traceback.format_exc()[-300:])
         db.meta_set("resumen_enviado", hoy)
 
 def main():
