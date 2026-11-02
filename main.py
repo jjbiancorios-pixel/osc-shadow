@@ -10,8 +10,10 @@ def procesar_moneda(m):
     df, fuente = data.velas_cerradas(m)
     P = engine.prep(df)
     try:
+        if m in config.CANDIDATAS: raise StopIteration
         import franco
         x = engine.BTC_CTX.get(str(df.index[-1])); franco.actualizar(m, df, P['rsi4'], x[0] if x else None, tg.enviar)
+    except StopIteration: pass
     except Exception: log("franco ERROR (no afecta al Shadow):", traceback.format_exc()[-300:])
     n = len(df)
     ult = db.ultima_vela(m)
@@ -19,15 +21,15 @@ def procesar_moneda(m):
     if ult is None:
         # arranque: no se reconstruye el pasado (evita ciclos falsos); se empieza desde la última vela cerrada
         db.set_ultima_vela(m, ts_last, fuente)
-        for k in config.CONFIGS: db.estado_set(m, k, engine.nuevo_estado())
+        for k in config.configs_de(m): db.estado_set(m, k, engine.nuevo_estado())
         return 0
     nuevas = [j for j in range(n) if str(df.index[j]) > ult]
     if not nuevas: return 0
     if str(df.index[nuevas[0]]) != str(pd.Timestamp(ult) + pd.Timedelta(hours=1)):
         log(f"⚠️ {m}: hueco entre {ult} y {df.index[nuevas[0]]} — se reinician sus ciclos abiertos sin contarlos")
-        for k in config.CONFIGS: db.estado_set(m, k, engine.nuevo_estado())
+        for k in config.configs_de(m): db.estado_set(m, k, engine.nuevo_estado())
     cerrados = 0
-    for k, cfg in config.CONFIGS.items():
+    for k, cfg in config.configs_de(m).items():
         st = db.estado_get(m, k) or engine.nuevo_estado()
         for j in nuevas:
             c = engine.paso(st, P, j, cfg, config.L_FLUJO)
@@ -74,6 +76,20 @@ def ciclo_horario():
         except Exception as e: fallidas[mon] = str(e)[:90]; return False
     for mon in config.MONEDAS:
         intentar(mon); time.sleep(config.PAUSA_ENTRE_MONEDAS_S)
+    # candidatas (solo observación): nunca generan alertas ni segunda ronda; las ausentes se reintentan 1 vez por día
+    cand_ok = 0; cand_ausentes = []
+    for mon in config.CANDIDATAS:
+        try:
+            k = "cand_ausente_" + mon; t = db.meta_get(k)
+            if t and (datetime.now(timezone.utc) - datetime.fromisoformat(t)).total_seconds() < config.REINTENTO_AUSENTE_H * 3600:
+                cand_ausentes.append(mon); continue
+            try:
+                cerrados += procesar_moneda(mon); cand_ok += 1; db.meta_set(k, "")
+            except Exception:
+                db.meta_set(k, datetime.now(timezone.utc).isoformat()); cand_ausentes.append(mon)
+        except Exception: log("candidata ERROR (no afecta al Shadow):", mon, traceback.format_exc()[-200:])
+        time.sleep(config.PAUSA_ENTRE_MONEDAS_S)
+    db.meta_set("cand_ok", cand_ok); db.meta_set("cand_ausentes", ",".join(cand_ausentes))
     if fallidas:
         log(f"primera ronda: {len(fallidas)} monedas con error, se reintentan en {config.PAUSA_SEGUNDA_RONDA_S}s")
         time.sleep(config.PAUSA_SEGUNDA_RONDA_S)
@@ -89,7 +105,7 @@ def ciclo_horario():
         elif int(db.meta_get(k, 0)) > 0: db.meta_set(k, 0)
     if nuevas_alertas:
         tg.enviar("⚠️ SHADOW: sin datos de BingX en %d pasadas seguidas para:\n%s" % (config.ALERTA_FALLOS_SEGUIDOS, "\n".join(nuevas_alertas[:10])))
-    log(f"ciclo: {ok} monedas ok, {len(fallidas)} con error, {cerrados} ciclos cerrados")
+    log(f"ciclo: {ok} monedas ok, {len(fallidas)} con error, {cerrados} ciclos cerrados · candidatas: {cand_ok} ok, {len(cand_ausentes)} sin datos")
     if fallidas: log("errores:", " | ".join(f"{k}: {v}" for k, v in list(fallidas.items())[:10]))
     return ok, len(fallidas), [f"{k}: {v}" for k, v in fallidas.items()]
 
@@ -144,8 +160,29 @@ def manejar(cmd):
         import franco; return franco.texto_abiertos()
     if c == "/fr_csv":
         import franco; tg.enviar_archivo("francotirador.csv", franco.csv_senales(), "Señales del Francotirador"); return "CSV del Francotirador enviado."
-    if c == "/ayuda": return "/resumen [días] · /abiertos · /csv · /mstrx · /mstrx_csv · /mstrx_res · /mstrx_ciclos · /patrones · /fr · /fr_abiertos · /fr_csv"
+    if c == "/cand":
+        return texto_candidatas()
+    if c == "/cand_csv":
+        tg.enviar_archivo("candidatas.csv", reporte.csv_ciclos_cfg("JC"), "Ciclos de las monedas candidatas (JC)"); return "CSV de candidatas enviado."
+    if c == "/ayuda": return "/cand · /cand_csv · /resumen [días] · /abiertos · /csv · /mstrx · /mstrx_csv · /mstrx_res · /mstrx_ciclos · /patrones · /fr · /fr_abiertos · /fr_csv"
     return None
+
+def texto_candidatas():
+    """Resultado por moneda candidata (config JC, % del margen a 5x). Solo observación."""
+    cs = db.ciclos("JC")
+    por = {}
+    for c in cs: por.setdefault(c['sym'], []).append(c)
+    l = ["🔭 <b>Monedas candidatas</b> (J simulada, solo observación)"]
+    aus = [x for x in (db.meta_get("cand_ausentes", "") or "").split(",") if x]
+    l.append(f"Con datos: {db.meta_get('cand_ok', 0)} de {len(config.CANDIDATAS)} · sin datos de BingX: {', '.join(aus) if aus else 'ninguna'}")
+    if not por: l.append("Todavía sin ciclos cerrados."); return "\n".join(l)
+    tot = len(cs); win = sum(1 for c in cs if c['pnl5'] > 0); sl = sum(1 for c in cs if c['res'] in ('sl', 'liq'))
+    l.append(f"Total: {tot} ciclos · win {100*win/tot:.0f}% · SL/liq {sl} · margen prom {sum(c['pnl5'] for c in cs)/tot:+.1f}%")
+    l.append("")
+    for s, v in sorted(por.items(), key=lambda x: -sum(c['pnl5'] for c in x[1])):
+        w = sum(1 for c in v if c['pnl5'] > 0); sls = sum(1 for c in v if c['res'] in ('sl', 'liq'))
+        l.append(f"{s}: {len(v)} ciclos · win {100*w/len(v):.0f}% · SL {sls} · {sum(c['pnl5'] for c in v)/len(v):+.1f}% margen prom")
+    return "\n".join(l[:60])
 
 def resumen_diario():
     hoy = datetime.now(db.TZ_ARG).strftime("%Y%m%d")
@@ -165,7 +202,7 @@ def main():
     db.init()
     log("Bot Oscilación SHADOW arrancando. DB:", config.DB_PATH)
     ok, fallos, errores = ciclo_horario()
-    tg.enviar(f"🧪 <b>Bot Oscilación SHADOW</b> arrancó (sin dinero, sin órdenes).\nMonedas leídas: {ok}/{len(config.MONEDAS)}. Configs: A–K en paralelo (D = B + trailing; E y F = fix22 con apalancamiento variable por ATR%; G y H = F con otra salida; I, J y K = B, D y G + protección por BTC).\n"
+    tg.enviar(f"🧪 <b>Bot Oscilación SHADOW</b> arrancó (sin dinero, sin órdenes).\nMonedas leídas: {ok}/{len(config.MONEDAS)}. Candidatas (solo observación, config JC): {len(config.CANDIDATAS)} monedas en prueba, /cand para verlas.\nConfigs: A–K en paralelo (D = B + trailing; E y F = fix22 con apalancamiento variable por ATR%; G y H = F con otra salida; I, J y K = B, D y G + protección por BTC).\n"
               + ("Con error: " + "; ".join(errores[:8]) if errores else "")
               + ("\nComandos: /resumen [días] /abiertos /csv" if config.ACEPTA_COMANDOS else "\nSolo envía (resumen diario 21:00 + CSV). Para comandos definí OSC_TELEGRAM_TOKEN."))
     recolectar_mstrx()

@@ -14,6 +14,14 @@ MONEDAS = ["AAVE","ACE","ADA","APT","ARB","AVAX","BAT","BCH","BNB","BTC","DASH",
            "HBAR","ICP","INJ","LINK","LTC","NEAR","ONDO","PENGU","PYTH","SAND","SEI","SOL","STRK","SUI","TAO",
            "TIA","TRX","UNI","VIRTUAL","WLD","W","XLM","XRP","ZEC"]
 
+# 02/11 — MONEDAS CANDIDATAS (solo observación). Se simulan SOLO con la config JC (= J: la estrategia del OSC REAL) para ver
+# si alguna merece sumarse a la lista. No se mezclan con las 40 de arriba (JC es una config aparte en los resúmenes).
+# Las que no existan como perpetuo en BingX se detectan solas y se vuelven a probar una vez por día.
+CANDIDATAS = ["OP","ATOM","DOT","ETC","GALA","IMX","GRT","STX","TON","JUP","PENDLE","ENS","NEO","LPT","WIF","DYDX","MINA","CYBER",
+              "EIGEN","ORDI","JTO","RENDER","XMR","CRV","LDO","RUNE","ALGO","EGLD","ZRO","ZK","POL","COMP","SNX","TRUMP"]
+CANDIDATAS = [m for m in CANDIDATAS if m not in MONEDAS]
+REINTENTO_AUSENTE_H = 24   # una candidata sin datos se vuelve a probar cada tantas horas (para no frenar el ciclo horario)
+
 # Mismas reglas que el simulador validado (osc.py). SL 3% desde el promedio recién tras la última entrada.
 BASE = dict(sl_dist=3.0, tp_off=0.5, tp_min=0.25, tp_fixed=1.0, fee=0.0005)
 # Protección por BTC (config I, J, K): sin largos nuevos si BTC cae >=5% desde su máx. de 7 días (se libera a -4%);
@@ -38,6 +46,8 @@ CONFIGS = {
     # J y K: mismas entradas/salidas que D y G pero con la protección BTC de I (histéresis: sin largos desde -5%, se libera a -4%).
     "J": dict(BASE, nombre="J = D (B + trailing 1xATR) + protección BTC",                adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, **BTC_PROT),
     "K": dict(BASE, nombre="K = G (F con SL 1,5%) + protección BTC",                     adx_th=30, rl=38, rs=62, dca=2.0, max_e=6, lev_k=10, lev_max=20, sl_dist=1.5, **BTC_PROT),
+    # JC: la misma estrategia que J (la del OSC REAL), pero SOLO para las monedas candidatas (observación).
+    "JC": dict(BASE, nombre="JC = J en monedas CANDIDATAS (solo observación)",           adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, **BTC_PROT),
 }
 L_FLUJO = 5            # apalancamiento con el que se simula el flujo (liquidación a -95% de margen)
 L_REPORTE = (3, 5)     # apalancamientos para los que se informa el PnL
@@ -50,3 +60,7 @@ PAUSA_ENTRE_MONEDAS_S = 0.8          # BingX limita consultas: más espacio entr
 REINTENTOS_ESPERA_S = (2, 5, 10)     # esperas de los reintentos por moneda (BingX código 100410)
 PAUSA_SEGUNDA_RONDA_S = 20           # espera antes de reintentar las monedas que fallaron en la pasada
 ALERTA_FALLOS_SEGUIDOS = 2           # aviso por Telegram solo si una moneda falla en este nº de pasadas seguidas
+
+def configs_de(m):
+    """Configs que corren para una moneda: las candidatas solo JC; las 40 de siempre, todas menos JC."""
+    return {k: v for k, v in CONFIGS.items() if (k == "JC") == (m in CANDIDATAS)}

@@ -61,3 +61,11 @@ def csv_ciclos():
         w.writerow([c['cfg'], c['sym'], c['side'], c['ini'], c['fin'], c['n_ent'], c['salida'], c['res'], round(c['mae1'], 3),
                     round(c['pnl3'], 3), round(c['pnl5'], 3), round(c['dur_h'], 1), c['entradas'], (round(c['lev'], 1) if c.get('lev') else '')])
     return b.getvalue().encode()
+
+def csv_ciclos_cfg(cfg):
+    import io, csv
+    b = io.StringIO(); w = csv.writer(b)
+    w.writerow(['cfg','sym','side','ini_utc','fin_utc','n_ent','salida','res','mae1_pct','pnl5','dur_h'])
+    for c in db.ciclos(cfg):
+        w.writerow([c['cfg'], c['sym'], c['side'], c['ini'], c['fin'], c['n_ent'], c['salida'], c['res'], round(c['mae1'], 3), round(c['pnl5'], 3), round(c['dur_h'], 1)])
+    return b.getvalue().encode()
