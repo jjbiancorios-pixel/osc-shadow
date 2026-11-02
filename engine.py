@@ -77,6 +77,18 @@ def btc_estado(ts, cfg):
     if x[3]: return 'sin_largos'
     return 'ok'
 
+# Freno por rachas de SL (solo config JF): si hay >= freno_n SL (de cualquier moneda) dentro de freno_h horas, no se abren ciclos NUEVOS
+# durante freno_h horas desde el último SL. Los ciclos abiertos siguen su curso. FRENO_SL lo carga main.py (hora de cierre de cada SL).
+FRENO_SL = []
+
+def freno_activo(t, cfg):
+    n = cfg.get('freno_n')
+    if not n: return False
+    h = pd.Timedelta(hours=cfg['freno_h']); t = pd.Timestamp(t)
+    for s in FRENO_SL:
+        if s <= t < s + h and sum(1 for x in FRENO_SL if s - h < x <= s) >= n: return True
+    return False
+
 def nuevo_estado():
     return {"fase": "idle", "side": 0, "ent": [], "t0": None, "mae1": 0.0, "tp": None, "trail": False, "peak": None, "stop": None}
 
@@ -145,6 +157,7 @@ def paso(st, P, j, cfg, L_flujo=5):
         return None
     # idle: evalúa señal al cierre de esta vela (la vela en que cerró un ciclo ya retornó arriba, igual que la sim)
     a = P['adx'][j]; r = P['rsi4'][j]
+    if cfg.get('freno_n') and freno_activo(pd.Timestamp(P['idx'][j]) + pd.Timedelta(hours=1), cfg): return None
     if a == a and r == r and a < cfg['adx_th']:
         bs = btc_estado(P['idx'][j], cfg)
         if bs == 'stop': return None

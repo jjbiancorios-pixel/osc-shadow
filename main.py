@@ -40,6 +40,14 @@ def procesar_moneda(m):
                 else:
                     pn = {L: (-100.0 if c['res'] == 'liq' else float(engine.pnl_puntos(c['ent'], c['salida'], c['side'], L, cfg['fee']))) for L in config.L_REPORTE}
                 db.guardar_ciclo(k, m, c, pn[3], pn[5]); cerrados += 1
+                if cfg.get('freno_n') and c['res'] in ('sl', 'liq'):
+                    try:
+                        tf = pd.Timestamp(c['fin']) + pd.Timedelta(hours=1); engine.FRENO_SL.append(tf)
+                        hasta = str(tf + pd.Timedelta(hours=cfg['freno_h']))
+                        if engine.freno_activo(tf, cfg) and db.meta_get("freno_hasta") != hasta:
+                            db.meta_set("freno_hasta", hasta)
+                            tg.enviar(f"🟡 SHADOW {k}: FRENO activado ({cfg['freno_n']} SL en {cfg['freno_h']} h). No abre ciclos nuevos hasta {hasta[5:16]} UTC (los abiertos siguen).")
+                    except Exception: log("freno ERROR (no afecta al Shadow):", traceback.format_exc()[-200:])
                 if c['res'] in ('sl', 'liq'):
                     tg.enviar(f"🔴 SHADOW {k} {m} {'LARGO' if c['side']==1 else 'CORTO'} cerró por {c['res'].upper()} con {c['n_ent']} entradas: {pn[5]:+.1f}% margen a {c.get('L') or 5:.0f}x")
         db.estado_set(m, k, st)
@@ -67,8 +75,14 @@ def actualizar_btc():
     except Exception as e:
         log("⚠️ no se pudo actualizar el contexto de BTC (la protección de I queda sin bloquear):", str(e)[:100])
 
+def cargar_freno():
+    """Reconstruye desde la base la lista de SL de la config con freno (JF), para que el freno sobreviva a reinicios."""
+    try:
+        engine.FRENO_SL[:] = sorted(pd.Timestamp(r['fin']) for r in db.ciclos('JF') if r['res'] in ('sl', 'liq'))
+    except Exception: log("freno carga ERROR:", traceback.format_exc()[-200:])
+
 def ciclo_horario():
-    actualizar_btc()
+    actualizar_btc(); cargar_freno()
     ok = cerrados = 0; fallidas = {}
     def intentar(mon):
         nonlocal ok, cerrados
@@ -202,7 +216,7 @@ def main():
     db.init()
     log("Bot Oscilación SHADOW arrancando. DB:", config.DB_PATH)
     ok, fallos, errores = ciclo_horario()
-    tg.enviar(f"🧪 <b>Bot Oscilación SHADOW</b> arrancó (sin dinero, sin órdenes).\nMonedas leídas: {ok}/{len(config.MONEDAS)}. Candidatas (solo observación, config JC): {len(config.CANDIDATAS)} monedas en prueba, /cand para verlas.\nConfigs: A–K en paralelo (D = B + trailing; E y F = fix22 con apalancamiento variable por ATR%; G y H = F con otra salida; I, J y K = B, D y G + protección por BTC).\n"
+    tg.enviar(f"🧪 <b>Bot Oscilación SHADOW</b> arrancó (sin dinero, sin órdenes).\nMonedas leídas: {ok}/{len(config.MONEDAS)}. Candidatas (solo observación, config JC): {len(config.CANDIDATAS)} monedas en prueba, /cand para verlas.\nConfigs: A–K en paralelo (D = B + trailing; E y F = fix22 con apalancamiento variable por ATR%; G y H = F con otra salida; I, J y K = B, D y G + protección por BTC; JF = J + freno: con 2 SL en 24h pausa aperturas 24h, en observación).\n"
               + ("Con error: " + "; ".join(errores[:8]) if errores else "")
               + ("\nComandos: /resumen [días] /abiertos /csv" if config.ACEPTA_COMANDOS else "\nSolo envía (resumen diario 21:00 + CSV). Para comandos definí OSC_TELEGRAM_TOKEN."))
     recolectar_mstrx()
