@@ -52,6 +52,8 @@ CONFIGS = {
     "JT": dict(dict(BASE, tp_min=0.40), nombre="JT = J con piso de TP 0,40%",                   adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, **BTC_PROT),
     # JX: igual que J pero SIN las 6 monedas con más pérdidas por SL en la simulación de 197 días (WLD, ACE, ARB, NEAR, FET, TIA).
     "JX": dict(BASE, nombre="JX = J sin las 6 monedas con más SL",                              adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, excluir=("WLD","ACE","ARB","NEAR","FET","TIA"), **BTC_PROT),
+    # JS: igual que J pero con SL 1,5% desde el promedio (en J es 3%). En observación (decisión 3/11/2026).
+    "JS": dict(dict(BASE, sl_dist=1.5), nombre="JS = J con SL 1,5%",                           adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, **BTC_PROT),
     # JZ: las tres juntas: freno (2 SL/24h) + piso de TP 0,40% + sin las 6 monedas.
     "JZ": dict(dict(BASE, tp_min=0.40), nombre="JZ = J + freno + TP 0,40% + sin 6 monedas",     adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, freno_n=2, freno_h=24, freno_key="JZ", excluir=("WLD","ACE","ARB","NEAR","FET","TIA"), **BTC_PROT),
     # JC: la misma estrategia que J (la del OSC REAL), pero SOLO para las monedas candidatas (observación).
