@@ -47,7 +47,13 @@ CONFIGS = {
     "J": dict(BASE, nombre="J = D (B + trailing 1xATR) + protección BTC",                adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, **BTC_PROT),
     "K": dict(BASE, nombre="K = G (F con SL 1,5%) + protección BTC",                     adx_th=30, rl=38, rs=62, dca=2.0, max_e=6, lev_k=10, lev_max=20, sl_dist=1.5, **BTC_PROT),
     # JF: igual que J + FRENO: con 2 SL (de cualquier moneda) en 24 h, no abre ciclos nuevos durante 24 h. En observación (decisión 2/11/2026).
-    "JF": dict(BASE, nombre="JF = J + freno (2 SL en 24h -> pausa 24h)",                  adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, freno_n=2, freno_h=24, **BTC_PROT),
+    "JF": dict(BASE, nombre="JF = J + freno (2 SL en 24h -> pausa 24h)",                  adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, freno_n=2, freno_h=24, freno_key="JF", **BTC_PROT),
+    # JT: igual que J pero con piso de TP 0,40% (en J es 0,25%). En observación (decisión 2/11/2026).
+    "JT": dict(dict(BASE, tp_min=0.40), nombre="JT = J con piso de TP 0,40%",                   adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, **BTC_PROT),
+    # JX: igual que J pero SIN las 6 monedas con más pérdidas por SL en la simulación de 197 días (WLD, ACE, ARB, NEAR, FET, TIA).
+    "JX": dict(BASE, nombre="JX = J sin las 6 monedas con más SL",                              adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, excluir=("WLD","ACE","ARB","NEAR","FET","TIA"), **BTC_PROT),
+    # JZ: las tres juntas: freno (2 SL/24h) + piso de TP 0,40% + sin las 6 monedas.
+    "JZ": dict(dict(BASE, tp_min=0.40), nombre="JZ = J + freno + TP 0,40% + sin 6 monedas",     adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, freno_n=2, freno_h=24, freno_key="JZ", excluir=("WLD","ACE","ARB","NEAR","FET","TIA"), **BTC_PROT),
     # JC: la misma estrategia que J (la del OSC REAL), pero SOLO para las monedas candidatas (observación).
     "JC": dict(BASE, nombre="JC = J en monedas CANDIDATAS (solo observación)",           adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, **BTC_PROT),
 }
@@ -65,4 +71,4 @@ ALERTA_FALLOS_SEGUIDOS = 2           # aviso por Telegram solo si una moneda fal
 
 def configs_de(m):
     """Configs que corren para una moneda: las candidatas solo JC; las 40 de siempre, todas menos JC."""
-    return {k: v for k, v in CONFIGS.items() if (k == "JC") == (m in CANDIDATAS)}
+    return {k: v for k, v in CONFIGS.items() if (k == "JC") == (m in CANDIDATAS) and m not in v.get("excluir", ())}

@@ -79,14 +79,14 @@ def btc_estado(ts, cfg):
 
 # Freno por rachas de SL (solo config JF): si hay >= freno_n SL (de cualquier moneda) dentro de freno_h horas, no se abren ciclos NUEVOS
 # durante freno_h horas desde el último SL. Los ciclos abiertos siguen su curso. FRENO_SL lo carga main.py (hora de cierre de cada SL).
-FRENO_SL = []
+FRENO_SL = {}   # clave de config (p. ej. "JF") -> lista de horas de cierre de sus SL
 
 def freno_activo(t, cfg):
     n = cfg.get('freno_n')
     if not n: return False
-    h = pd.Timedelta(hours=cfg['freno_h']); t = pd.Timestamp(t)
-    for s in FRENO_SL:
-        if s <= t < s + h and sum(1 for x in FRENO_SL if s - h < x <= s) >= n: return True
+    h = pd.Timedelta(hours=cfg['freno_h']); t = pd.Timestamp(t); L = FRENO_SL.get(cfg.get('freno_key'), [])
+    for s in L:
+        if s <= t < s + h and sum(1 for x in L if s - h < x <= s) >= n: return True
     return False
 
 def nuevo_estado():
