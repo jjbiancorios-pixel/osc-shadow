@@ -202,7 +202,8 @@ def texto_candidatas():
 
 def resumen_diario():
     hoy = datetime.now(db.TZ_ARG).strftime("%Y%m%d")
-    if datetime.now(db.TZ_ARG).hour >= config.HORA_RESUMEN_ARG and db.meta_get("resumen_enviado") != hoy:
+    _n = datetime.now(db.TZ_ARG)
+    if (_n.hour, _n.minute) >= tuple(config.HORA_RESUMEN_ARG) and db.meta_get("resumen_enviado") != hoy:
         d = str(datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=24))
         tg.enviar(reporte.texto_resumen(d, "últimas 24h") + "\n\n" + reporte.texto_resumen(None, "acumulado"))
         tg.enviar_archivo(f"ciclos_shadow_{hoy}.csv", reporte.csv_ciclos(), "Ciclos cerrados (acumulado)")

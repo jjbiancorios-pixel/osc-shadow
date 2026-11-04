@@ -64,7 +64,7 @@ L_REPORTE = (3, 5)     # apalancamientos para los que se informa el PnL
 F_MARGEN = 0.01        # 1% del capital como margen por entrada (para el reporte de cartera)
 K_SIMULTANEOS = 8      # tope de ciclos simultáneos en el reporte de cartera
 VELAS_1H = 700         # ~29 días: calentamiento ADX/RSI + 100 velas de 4h para VPVR
-HORA_RESUMEN_ARG = 21  # resumen diario por Telegram (hora Argentina)
+HORA_RESUMEN_ARG = (23, 55)  # resumen diario por Telegram (hora y minuto, hora Argentina)
 
 PAUSA_ENTRE_MONEDAS_S = 0.8          # BingX limita consultas: más espacio entre monedas
 REINTENTOS_ESPERA_S = (2, 5, 10)     # esperas de los reintentos por moneda (BingX código 100410)
