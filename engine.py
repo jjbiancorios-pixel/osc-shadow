@@ -90,7 +90,7 @@ def freno_activo(t, cfg):
     return False
 
 def nuevo_estado():
-    return {"fase": "idle", "side": 0, "ent": [], "t0": None, "mae1": 0.0, "tp": None, "trail": False, "peak": None, "stop": None}
+    return {"fase": "idle", "side": 0, "ent": [], "t0": None, "mae1": 0.0, "tp": None, "trail": False, "peak": None, "stop": None, "parc": None, "bej": {}}
 
 def _avgp(ent): return len(ent) / sum(1 / p for p in ent)
 
@@ -104,6 +104,22 @@ def _tp_price(P, j, ent, sd, cfg):
 def pnl_puntos(ent, ex, sd, L, fee):
     """PnL en puntos de % de margen (con comisión taker en entradas+salida)."""
     return L * np.mean([(ex / p - 1) * sd for p in ent]) * 100 - fee * 2 * L * 100
+
+
+def _eff_exit(st, ent, ex, sd, fee):
+    """Si hubo cierre PARCIAL a equilibrio, devuelve el precio de salida equivalente (único) que da el mismo PnL ponderado.
+    El PnL es proporcional al apalancamiento, por eso la equivalencia vale para cualquier L."""
+    pc = st.get('parc')
+    if not pc: return ex
+    f, h1 = pc
+    m = sum(1 / p for p in ent) / len(ent)
+    h2 = sd * (ex * m - 1) * 100 - fee * 200
+    ht = f * h1 + (1 - f) * h2
+    return ((ht + fee * 200) / (100 * sd) + 1) / m
+
+def _h_be(ent, be, sd, fee):
+    m = sum(1 / p for p in ent) / len(ent)
+    return sd * (be * m - 1) * 100 - fee * 200
 
 def paso(st, P, j, cfg, L_flujo=5):
     """Procesa la vela cerrada j. Devuelve dict del ciclo si cerró en esta vela, si no None. Muta st."""
@@ -119,9 +135,9 @@ def paso(st, P, j, cfg, L_flujo=5):
         if st.get('trail'):
             # TP con trailing: vela posterior al disparo, orden adverso primero (igual que bt/osc4.py trail=1)
             if (sd == 1 and l[j] <= st['stop']) or (sd == -1 and h[j] >= st['stop']):
-                cyc = dict(side=sd, ini=st['t0'], fin=str(P['idx'][j]), ent=list(ent), n_ent=len(ent), salida=float(st['stop']),
+                cyc = dict(side=sd, ini=st['t0'], fin=str(P['idx'][j]), ent=list(ent), n_ent=len(ent), salida=float(_eff_exit(st, ent, float(st['stop']), sd, cfg['fee'])),
                            res='trail', mae1=st['mae1'], L=st.get('L'))
-                st.update(fase='idle', side=0, ent=[], t0=None, mae1=0.0, tp=None, trail=False, peak=None, stop=None, L=None)
+                st.update(fase='idle', side=0, ent=[], t0=None, mae1=0.0, tp=None, trail=False, peak=None, stop=None, L=None, parc=None, bej={})
                 return cyc
             st['peak'] = float(max(st['peak'], h[j]) if sd == 1 else min(st['peak'], l[j]))
             st['stop'] = float(max(st['tp'], st['peak'] - tx * atr) if sd == 1 else min(st['tp'], st['peak'] + tx * atr))
@@ -142,6 +158,28 @@ def paso(st, P, j, cfg, L_flujo=5):
             if (sd == 1 and l[j] <= slp) or (sd == -1 and h[j] >= slp): ex, res = slp, 'sl'
         L_c = st.get('L') or L_flujo
         if res is None and L_c * w1 <= -95: res = 'liq'
+        # --- Cierre a equilibrio (configs JE*/JP*): be_from = nº de entradas desde el que se activa; be_frac = fracción que se cierra
+        #     (1 = total, 0,5 = mitad); be_off = % sobre el promedio (cubre comisiones); be2_from = desde ahí el resto cierra TODO a equilibrio.
+        if res is None and cfg.get('be_from'):
+            n = len(ent); pc = st.get('parc'); bej = st.setdefault('bej', {})
+            etapa = None
+            if cfg.get('be_frac', 1.0) >= 1.0:
+                if n >= cfg['be_from']: etapa = 'total'
+            elif not pc:
+                if n >= cfg['be_from']: etapa = 'parcial'
+            if pc and cfg.get('be2_from') and n >= cfg['be2_from']: etapa = 'total'
+            if pc is None and cfg.get('be_frac', 1.0) < 1.0 and etapa is None: pass
+            if etapa:
+                bej.setdefault(etapa, j)
+                bep = ap * (1 + sd * cfg.get('be_off', 0.15) / 100)
+                tocado = (sd == 1 and h[j] >= bep) or (sd == -1 and l[j] <= bep)
+                tp_tocado = (sd == 1 and h[j] >= st['tp']) or (sd == -1 and l[j] <= st['tp'])
+                if tocado and bej[etapa] < j and not tp_tocado:
+                    if etapa == 'parcial':
+                        st['parc'] = (float(cfg['be_frac']), float(_h_be(ent, bep, sd, cfg['fee'])))
+                        st['bej']['total'] = j   # el cierre total posterior no puede ocurrir en la misma vela
+                    else:
+                        ex, res = bep, 'be'
         if res is None and ((sd == 1 and h[j] >= st['tp']) or (sd == -1 and l[j] <= st['tp'])):
             if tx and ((sd == 1 and P['c'][j] > st['tp']) or (sd == -1 and P['c'][j] < st['tp'])):
                 # cerró más allá del TP: no se cierra, se activa el trailing (stop nunca por debajo del TP)
@@ -150,9 +188,9 @@ def paso(st, P, j, cfg, L_flujo=5):
                 return None
             ex, res = st['tp'], 'tp'
         if res is not None:
-            cyc = dict(side=sd, ini=st['t0'], fin=str(P['idx'][j]), ent=list(ent), n_ent=len(ent), salida=None if ex is None else float(ex),
+            cyc = dict(side=sd, ini=st['t0'], fin=str(P['idx'][j]), ent=list(ent), n_ent=len(ent), salida=None if ex is None else float(_eff_exit(st, ent, ex, sd, cfg['fee'])),
                        res=res, mae1=st['mae1'], L=st.get('L'))
-            st.update(fase='idle', side=0, ent=[], t0=None, mae1=0.0, tp=None, trail=False, peak=None, stop=None, L=None)
+            st.update(fase='idle', side=0, ent=[], t0=None, mae1=0.0, tp=None, trail=False, peak=None, stop=None, L=None, parc=None, bej={})
             return cyc
         return None
     # idle: evalúa señal al cierre de esta vela (la vela en que cerró un ciclo ya retornó arriba, igual que la sim)

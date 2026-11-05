@@ -53,6 +53,13 @@ CONFIGS = {
     # JX: igual que J pero SIN las 6 monedas con más pérdidas por SL en la simulación de 197 días (WLD, ACE, ARB, NEAR, FET, TIA).
     "JX": dict(BASE, nombre="JX = J sin las 6 monedas con más SL",                              adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, excluir=("WLD","ACE","ARB","NEAR","FET","TIA"), **BTC_PROT),
     # JS: igual que J pero con SL 1,5% desde el promedio (en J es 3%). En observación (decisión 3/11/2026).
+    # --- Cierre a equilibrio / reducción (decisión 5/11/2026, por NEAR en 5ª entrada). Todas = J + una regla (be_off 0,15% sobre el promedio).
+    # El cierre parcial se modela con el promedio al momento de cerrar; el resto sigue con las reglas normales de J (aprox. razonable).
+    "JE5": dict(BASE, nombre="JE5 = J + desde 5ª entrada cierra TODO a equilibrio", adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, be_from=5, be_frac=1.0, be_off=0.15, **BTC_PROT),
+    "JE6": dict(BASE, nombre="JE6 = J + desde 6ª entrada cierra TODO a equilibrio (antes del SL)", adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, be_from=6, be_frac=1.0, be_off=0.15, **BTC_PROT),
+    "JP5": dict(BASE, nombre="JP5 = J + en 5ª entrada cierra 50% a equilibrio", adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, be_from=5, be_frac=0.5, be_off=0.15, **BTC_PROT),
+    "JP4": dict(BASE, nombre="JP4 = J + en 4ª entrada cierra 50% a equilibrio", adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, be_from=4, be_frac=0.5, be_off=0.15, **BTC_PROT),
+    "JQ": dict(BASE, nombre="JQ = J + 5ª: 50% a equilibrio y 6ª: el resto a equilibrio", adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, be_from=5, be_frac=0.5, be2_from=6, be_off=0.15, **BTC_PROT),
     "JS": dict(dict(BASE, sl_dist=1.5), nombre="JS = J con SL 1,5%",                           adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, **BTC_PROT),
     # JZ: las tres juntas: freno (2 SL/24h) + piso de TP 0,40% + sin las 6 monedas.
     "JZ": dict(dict(BASE, tp_min=0.40), nombre="JZ = J + freno + TP 0,40% + sin 6 monedas",     adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, freno_n=2, freno_h=24, freno_key="JZ", excluir=("WLD","ACE","ARB","NEAR","FET","TIA"), **BTC_PROT),
