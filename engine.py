@@ -148,6 +148,9 @@ def paso(st, P, j, cfg, L_flujo=5):
             if (sd == 1 and l[j] <= lvl) or (sd == -1 and h[j] >= lvl): ent.append(float(lvl)); changed = True
             else: break
         if changed: st['tp'] = float(_tp_price(P, j, ent, sd, cfg))
+        # Reducción inmediata (configs RD*): al llegar a la entrada nº red_from se cierra red_frac de la posición a mercado (al precio de esa entrada)
+        if changed and cfg.get('red_from') and len(ent) >= cfg['red_from'] and not st.get('parc'):
+            st['parc'] = (float(cfg['red_frac']), float(_h_be(ent, ent[-1], sd, cfg['fee'])))
         ap = _avgp(ent)
         worst = l[j] if sd == 1 else h[j]
         w1 = float(np.mean([(worst / p - 1) * sd for p in ent]) * 100)   # retorno SIN apalancar en el peor punto

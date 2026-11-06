@@ -60,6 +60,9 @@ CONFIGS = {
     "JP5": dict(BASE, nombre="JP5 = J + en 5ª entrada cierra 50% a equilibrio", adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, be_from=5, be_frac=0.5, be_off=0.15, **BTC_PROT),
     "JP4": dict(BASE, nombre="JP4 = J + en 4ª entrada cierra 50% a equilibrio", adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, be_from=4, be_frac=0.5, be_off=0.15, **BTC_PROT),
     "JQ": dict(BASE, nombre="JQ = J + 5ª: 50% a equilibrio y 6ª: el resto a equilibrio", adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, be_from=5, be_frac=0.5, be2_from=6, be_off=0.15, **BTC_PROT),
+    # JN7 / JN8: J con 7 u 8 entradas (más niveles de DCA = más "aire"; el SL 3% se activa tras la última). Margen máx. por ciclo: 7% / 8% del capital. (decisión 5/11/2026)
+    "JN7": dict(BASE, nombre="JN7 = J con 7 entradas (margen máx. 7%/ciclo)", adx_th=25, rl=38, rs=62, dca=2.0, max_e=7, trail_x=1.0, **BTC_PROT),
+    "JN8": dict(BASE, nombre="JN8 = J con 8 entradas (margen máx. 8%/ciclo)", adx_th=25, rl=38, rs=62, dca=2.0, max_e=8, trail_x=1.0, **BTC_PROT),
     "JS": dict(dict(BASE, sl_dist=1.5), nombre="JS = J con SL 1,5%",                           adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, **BTC_PROT),
     # JZ: las tres juntas: freno (2 SL/24h) + piso de TP 0,40% + sin las 6 monedas.
     "JZ": dict(dict(BASE, tp_min=0.40), nombre="JZ = J + freno + TP 0,40% + sin 6 monedas",     adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, freno_n=2, freno_h=24, freno_key="JZ", excluir=("WLD","ACE","ARB","NEAR","FET","TIA"), **BTC_PROT),
