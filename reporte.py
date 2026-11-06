@@ -11,7 +11,7 @@ def cartera(cfg, L, desde=None):
     ev.sort(key=lambda x: x[0]); ocupados = []; tomados = []
     for ini, fin, c in ev:
         ocupados = [x for x in ocupados if x > ini]
-        if len(ocupados) >= config.K_SIMULTANEOS: continue
+        if len(ocupados) >= config.CONFIGS.get(cfg, {}).get('tope', config.K_SIMULTANEOS): continue
         ocupados.append(fin)
         if c is not None: tomados.append(c)
     if desde: tomados = [c for c in tomados if c['fin'] >= desde]
@@ -33,7 +33,7 @@ def resumen_cfg(cfg, desde=None):
                 dur=(sum(c['dur_h'] for c in t) / n if n else 0), ent=(sum(c['n_ent'] for c in t) / n if n else 0))
 
 def texto_resumen(desde=None, titulo="Resumen"):
-    l = [f"📊 <b>Oscilación SHADOW — {titulo}</b> (sin dinero)", "Capital % con 1% de margen por entrada, máx. 8 ciclos simultáneos", ""]
+    l = [f"📊 <b>Oscilación SHADOW — {titulo}</b> (sin dinero)", "Capital % con 1% de margen por entrada, máx. 10 ciclos simultáneos (JM15/JM20: 15 y 20)", ""]
     for k, cfg in config.CONFIGS.items():
         r = resumen_cfg(k, desde)
         l.append(f"<b>{escape(cfg['nombre'])}</b>")

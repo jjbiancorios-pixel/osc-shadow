@@ -63,6 +63,9 @@ CONFIGS = {
     # JN7 / JN8: J con 7 u 8 entradas (más niveles de DCA = más "aire"; el SL 3% se activa tras la última). Margen máx. por ciclo: 7% / 8% del capital. (decisión 5/11/2026)
     "JN7": dict(BASE, nombre="JN7 = J con 7 entradas (margen máx. 7%/ciclo)", adx_th=25, rl=38, rs=62, dca=2.0, max_e=7, trail_x=1.0, **BTC_PROT),
     "JN8": dict(BASE, nombre="JN8 = J con 8 entradas (margen máx. 8%/ciclo)", adx_th=25, rl=38, rs=62, dca=2.0, max_e=8, trail_x=1.0, **BTC_PROT),
+    # JM15 / JM20: idénticas a J (mismos ciclos) pero con tope de 15 / 20 ciclos simultáneos en el reporte de cartera (decisión 6/11/2026).
+    "JM15": dict(BASE, nombre="JM15 = J con tope 15 ciclos simultáneos", adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, tope=15, **BTC_PROT),
+    "JM20": dict(BASE, nombre="JM20 = J con tope 20 ciclos simultáneos", adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, tope=20, **BTC_PROT),
     "JS": dict(dict(BASE, sl_dist=1.5), nombre="JS = J con SL 1,5%",                           adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, **BTC_PROT),
     # JZ: las tres juntas: freno (2 SL/24h) + piso de TP 0,40% + sin las 6 monedas.
     "JZ": dict(dict(BASE, tp_min=0.40), nombre="JZ = J + freno + TP 0,40% + sin 6 monedas",     adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, freno_n=2, freno_h=24, freno_key="JZ", excluir=("WLD","ACE","ARB","NEAR","FET","TIA"), **BTC_PROT),
@@ -72,7 +75,7 @@ CONFIGS = {
 L_FLUJO = 5            # apalancamiento con el que se simula el flujo (liquidación a -95% de margen)
 L_REPORTE = (3, 5)     # apalancamientos para los que se informa el PnL
 F_MARGEN = 0.01        # 1% del capital como margen por entrada (para el reporte de cartera)
-K_SIMULTANEOS = 8      # tope de ciclos simultáneos en el reporte de cartera
+K_SIMULTANEOS = 10     # tope de ciclos simultáneos en el reporte de cartera (igual que el OSC REAL; antes 8). Cada config puede fijar su propio 'tope'
 VELAS_1H = 700         # ~29 días: calentamiento ADX/RSI + 100 velas de 4h para VPVR
 HORA_RESUMEN_ARG = (23, 55)  # resumen diario por Telegram (hora y minuto, hora Argentina)
 
