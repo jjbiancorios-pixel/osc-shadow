@@ -77,3 +77,40 @@ def texto():
          f"Régimen: {'ALCISTA (75/25)' if st['modo']=='hi' else 'BAJISTA (25/75)'} · cambios {st['cambios']} · ciclos BX contados {st['n_ciclos']} · SL {st['n_sl']}",
          linea("FIJA 50/50", st['E_f'], st['U_f']), linea("REGLA     ", st['E_r'], st['U_r'])]
     return "\n".join(l)
+
+
+# ───────────── BTC (bot nuevo en Binance, solo seguimiento virtual) ─────────────
+# BT1 = oscilación fix22 en BTC; BT2 = BT1 + trailing 1xATR. Cartera virtual 50% BTC (COIN-M) / 50% USDT (USDT-M), 20x, 2,5% por entrada en cada billetera.
+BTC_VAR = ("BT1", "BT2")
+
+def _aplicar_ciclo_btc(st, c):
+    ent = json.loads(c['entradas']); n = len(ent); sd = c['side']; liq = (c['res'] == 'liq'); ex = c['salida']; fee = config.BASE['fee']
+    if liq or not ex: pn = -100.0; pi = -100.0
+    else:
+        pn = float(engine.pnl_puntos(ent, ex, sd, L, fee)); pi = float(L * np.mean([1 - p / ex for p in ent]) * 100 - fee * 200 * L)
+    st['U'] += st['U'] * M * n * pn / 100
+    if sd == 1: st['E'] += st['E'] * M * n * pi / 100
+    st['n_ciclos'] += 1; st['n_sl'] += 1 if c['res'] in ('sl', 'liq') else 0
+
+def actualizar_btc():
+    df, _ = data.velas_cerradas("BTC", 1400); p = float(df['c'].iloc[-1]); ahora = datetime.now(timezone.utc)
+    for k in BTC_VAR:
+        key = "btc_cartera_" + k; raw = db.meta_get(key); cs = db.ciclos(k)
+        if raw: st = json.loads(raw)
+        else:
+            st = dict(inicio=str(ahora), p0=p, E=500.0 / p, U=500.0, ult_id=max([c['id'] for c in cs], default=0), n_ciclos=0, n_sl=0)
+            st['eq0_usd'] = 1000.0; st['eq0_btc'] = st['E'] + st['U'] / p
+        for c in cs:
+            if c['id'] > st['ult_id']: _aplicar_ciclo_btc(st, c); st['ult_id'] = c['id']
+        db.meta_set(key, json.dumps(st))
+
+def texto_btc():
+    try: df, _ = data.velas_cerradas("BTC", 1400); p = float(df['c'].iloc[-1])
+    except Exception: p = None
+    l = ["₿ <b>BTC cartera (virtual, bot nuevo en Binance)</b> — 50% BTC / 50% USDT, 20x, 2,5% por entrada"]
+    for k, nom in (("BT1", "BT1 oscilación fix22"), ("BT2", "BT2 fix22 + trailing 1xATR")):
+        raw = db.meta_get("btc_cartera_" + k)
+        if not raw: l.append(f"{nom}: sin datos todavía"); continue
+        st = json.loads(raw); pp = p or st['p0']; usd = st['E'] * pp + st['U']; btc = st['E'] + st['U'] / pp
+        l.append(f"{nom}: {st['E']:.5f} BTC + {st['U']:.1f} USDT = {usd:,.0f} USD ({(usd/st['eq0_usd']-1)*100:+.1f}%) · en BTC {(btc/st['eq0_btc']-1)*100:+.1f}% · ciclos {st['n_ciclos']} · SL {st['n_sl']} (desde {st['inicio'][:10]})")
+    return "\n".join(l)
