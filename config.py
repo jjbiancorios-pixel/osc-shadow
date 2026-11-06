@@ -66,6 +66,8 @@ CONFIGS = {
     # JM15 / JM20: idénticas a J (mismos ciclos) pero con tope de 15 / 20 ciclos simultáneos en el reporte de cartera (decisión 6/11/2026).
     "JM15": dict(BASE, nombre="JM15 = J con tope 15 ciclos simultáneos", adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, tope=15, **BTC_PROT),
     "JM20": dict(BASE, nombre="JM20 = J con tope 20 ciclos simultáneos", adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, tope=20, **BTC_PROT),
+    # BX: referencia del Bot BingX (oscilación fix22 en ETH, sin protección BTC). Solo corre para ETH; alimenta el seguimiento virtual eth_cartera.py (5/11/2026).
+    "BX": dict(BASE, nombre="BX = Bot BingX fix22 en ETH (referencia: ADX<30, RSI 38/62, DCA 2,0, 6 ent.)", adx_th=30, rl=38, rs=62, dca=2.0, max_e=6, solo=("ETH",)),
     "JS": dict(dict(BASE, sl_dist=1.5), nombre="JS = J con SL 1,5%",                           adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, **BTC_PROT),
     # JZ: las tres juntas: freno (2 SL/24h) + piso de TP 0,40% + sin las 6 monedas.
     "JZ": dict(dict(BASE, tp_min=0.40), nombre="JZ = J + freno + TP 0,40% + sin 6 monedas",     adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, freno_n=2, freno_h=24, freno_key="JZ", excluir=("WLD","ACE","ARB","NEAR","FET","TIA"), **BTC_PROT),
@@ -86,4 +88,4 @@ ALERTA_FALLOS_SEGUIDOS = 2           # aviso por Telegram solo si una moneda fal
 
 def configs_de(m):
     """Configs que corren para una moneda: las candidatas solo JC; las 40 de siempre, todas menos JC."""
-    return {k: v for k, v in CONFIGS.items() if (k == "JC") == (m in CANDIDATAS) and m not in v.get("excluir", ())}
+    return {k: v for k, v in CONFIGS.items() if (k == "JC") == (m in CANDIDATAS) and m not in v.get("excluir", ()) and ("solo" not in v or m in v["solo"])}

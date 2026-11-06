@@ -121,6 +121,9 @@ def ciclo_horario():
         elif int(db.meta_get(k, 0)) > 0: db.meta_set(k, 0)
     if nuevas_alertas:
         tg.enviar("⚠️ SHADOW: sin datos de BingX en %d pasadas seguidas para:\n%s" % (config.ALERTA_FALLOS_SEGUIDOS, "\n".join(nuevas_alertas[:10])))
+    try:
+        import eth_cartera; eth_cartera.actualizar()
+    except Exception: log("eth_cartera ERROR (no afecta al Shadow):", traceback.format_exc()[-300:])
     log(f"ciclo: {ok} monedas ok, {len(fallidas)} con error, {cerrados} ciclos cerrados · candidatas: {cand_ok} ok, {len(cand_ausentes)} sin datos")
     if fallidas: log("errores:", " | ".join(f"{k}: {v}" for k, v in list(fallidas.items())[:10]))
     return ok, len(fallidas), [f"{k}: {v}" for k, v in fallidas.items()]
@@ -180,7 +183,9 @@ def manejar(cmd):
         return texto_candidatas()
     if c == "/cand_csv":
         tg.enviar_archivo("candidatas.csv", reporte.csv_ciclos_cfg("JC"), "Ciclos de las monedas candidatas (JC)"); return "CSV de candidatas enviado."
-    if c == "/ayuda": return "/cand · /cand_csv · /resumen [días] · /abiertos · /csv · /mstrx · /mstrx_csv · /mstrx_res · /mstrx_ciclos · /patrones · /fr · /fr_abiertos · /fr_csv"
+    if c == "/eth":
+        import eth_cartera; return eth_cartera.texto()
+    if c == "/ayuda": return "/eth · /cand · /cand_csv · /resumen [días] · /abiertos · /csv · /mstrx · /mstrx_csv · /mstrx_res · /mstrx_ciclos · /patrones · /fr · /fr_abiertos · /fr_csv"
     return None
 
 def texto_candidatas():
@@ -213,13 +218,16 @@ def resumen_diario():
         try:
             import franco; tg.enviar(franco.texto())
         except Exception: log("resumen franco ERROR:", traceback.format_exc()[-300:])
+        try:
+            import eth_cartera; tg.enviar(eth_cartera.texto())
+        except Exception: log("resumen eth_cartera ERROR:", traceback.format_exc()[-300:])
         db.meta_set("resumen_enviado", hoy)
 
 def main():
     db.init()
     log("Bot Oscilación SHADOW arrancando. DB:", config.DB_PATH)
     ok, fallos, errores = ciclo_horario()
-    tg.enviar(f"🧪 <b>Bot Oscilación SHADOW</b> arrancó (sin dinero, sin órdenes).\nMonedas leídas: {ok}/{len(config.MONEDAS)}. Candidatas (solo observación, config JC): {len(config.CANDIDATAS)} monedas en prueba, /cand para verlas.\nConfigs: A–K en paralelo (D = B + trailing; E y F = fix22 con apalancamiento variable por ATR%; G y H = F con otra salida; I, J y K = B, D y G + protección por BTC; JF = J + freno (2 SL en 24h → pausa 24h); JT = J con piso de TP 0,40%; JX = J sin las 6 monedas con más SL; JZ = freno + TP 0,40% + sin esas 6 monedas; JS = J con SL 1,5%; JE5/JE6/JP5/JP4/JQ = J + cierre a equilibrio total o parcial según la entrada; JN7/JN8 = J con 7 u 8 entradas; JM15/JM20 = J con tope de 15 y 20 ciclos simultáneos (el reporte ahora usa tope 10 como el real); todas en observación).\n"
+    tg.enviar(f"🧪 <b>Bot Oscilación SHADOW</b> arrancó (sin dinero, sin órdenes).\nMonedas leídas: {ok}/{len(config.MONEDAS)}. Candidatas (solo observación, config JC): {len(config.CANDIDATAS)} monedas en prueba, /cand para verlas.\nConfigs: A–K en paralelo (D = B + trailing; E y F = fix22 con apalancamiento variable por ATR%; G y H = F con otra salida; I, J y K = B, D y G + protección por BTC; JF = J + freno (2 SL en 24h → pausa 24h); JT = J con piso de TP 0,40%; JX = J sin las 6 monedas con más SL; JZ = freno + TP 0,40% + sin esas 6 monedas; JS = J con SL 1,5%; JE5/JE6/JP5/JP4/JQ = J + cierre a equilibrio total o parcial según la entrada; JN7/JN8 = J con 7 u 8 entradas; BX = referencia del Bot BingX en ETH (alimenta /eth: cartera virtual 50/50 vs regla EMA200); JM15/JM20 = J con tope de 15 y 20 ciclos simultáneos (el reporte ahora usa tope 10 como el real); todas en observación).\n"
               + ("Con error: " + "; ".join(errores[:8]) if errores else "")
               + ("\nComandos: /resumen [días] /abiertos /csv" if config.ACEPTA_COMANDOS else "\nSolo envía (resumen diario 21:00 + CSV). Para comandos definí OSC_TELEGRAM_TOKEN."))
     recolectar_mstrx()
