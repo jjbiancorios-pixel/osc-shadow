@@ -1,0 +1,22 @@
+OSC REAL - arreglo de entrada duplicada (caso ENA 7/11)
+Archivo a reemplazar en el repo del bot real: bot.py (NO tocar el Shadow). Todavia NO esta desplegado.
+
+PROBLEMA
+La gestion horaria cancelaba y reponia la orden de DCA. Si esa orden se llenaba justo antes de cancelarse,
+BingX contestaba "ya ejecutada", el bot lo tomaba como cancelacion normal, perdia el id y colocaba otra orden
+que tambien se ejecutaba. Resultado: 4 entradas reales, 3 registradas.
+
+CAMBIOS (bot.py)
+1. Nuevo _cancelar_dca_seguro(): consulta la orden antes y despues de cancelar. Si esta ejecutada (total o
+   parcial) NO la cancela ni repone y conserva su id para que el monitor registre la entrada.
+   Se usa en: gestion horaria (reposicion del DCA y TP tocado por vela), monitor (toque del TP) y reponer().
+2. Nuevo _recontar(): en cada vuelta del monitor compara las entradas que implica la posicion real de BingX
+   (cantidad x promedio / (margen x apalancamiento)) con las registradas. Si faltan, las completa con el
+   promedio real, recalcula TP y stops y avisa por Telegram ("recuento no coincidia con BingX").
+   Corrige ENA sola al desplegar.
+
+PRUEBA (test_fix.py, exchange simulado que reproduce la carrera)
+- bot original: 3 registradas vs 4 reales  -> reproduce el bug
+- bot parchado: 3 vs 3 (sin duplicar)
+- recuento con los datos reales de ENA: 3 -> 4 entradas, promedio 0.16297 (BingX 0.1630); 2da vuelta sin cambios
+Para correrla: PYTHONPATH=. python3 test_fix.py (necesita engine.py y un config.py con los parametros).
