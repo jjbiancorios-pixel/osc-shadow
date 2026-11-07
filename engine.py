@@ -158,7 +158,11 @@ def paso(st, P, j, cfg, L_flujo=5):
         res = ex = None
         if len(ent) >= cfg['max_e'] and cfg['sl_dist'] is not None:
             slp = ap * (1 - sd * cfg['sl_dist'] / 100)
-            if (sd == 1 and l[j] <= slp) or (sd == -1 and h[j] >= slp): ex, res = slp, 'sl'
+            if (sd == 1 and l[j] <= slp) or (sd == -1 and h[j] >= slp):
+                ex, res = slp, 'sl'
+                # Realismo (igual que el bot real, 7/11/2026): si el stop ya estaba CRUZADO al llenarse la última entrada (stop por encima del precio
+                # de esa entrada en largos / por debajo en cortos), el real cierra a mercado ~en el precio de esa entrada (stop_cruzado), no en el del stop.
+                if cfg.get('sl_real', True) and changed and ((sd == 1 and slp >= ent[-1]) or (sd == -1 and slp <= ent[-1])): ex = float(ent[-1])
         L_c = st.get('L') or L_flujo
         if res is None and L_c * w1 <= -95: res = 'liq'
         # --- Cierre a equilibrio (configs JE*/JP*): be_from = nº de entradas desde el que se activa; be_frac = fracción que se cierra
