@@ -143,7 +143,9 @@ def paso(st, P, j, cfg, L_flujo=5):
             st['stop'] = float(max(st['tp'], st['peak'] - tx * atr) if sd == 1 else min(st['tp'], st['peak'] + tx * atr))
             return None
         changed = False
-        while len(ent) < cfg['max_e']:
+        # Congela el DCA de LARGOS mientras BTC está en 'sin_largos' (config JD). Decisión con la vela anterior (como en la simulación).
+        _frz = bool(cfg.get('dca_freeze')) and sd == 1 and j >= 1 and btc_estado(P['idx'][j - 1], cfg) in ('sin_largos', 'stop')
+        while len(ent) < cfg['max_e'] and not _frz:
             lvl = ent[-1] - sd * cfg['dca'] * atr
             if (sd == 1 and l[j] <= lvl) or (sd == -1 and h[j] >= lvl): ent.append(float(lvl)); changed = True
             else: break

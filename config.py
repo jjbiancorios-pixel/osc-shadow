@@ -74,6 +74,8 @@ CONFIGS = {
     "JS": dict(dict(BASE, sl_dist=1.5), nombre="JS = J con SL 1,5%",                           adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, **BTC_PROT),
     # JZ: las tres juntas: freno (2 SL/24h) + piso de TP 0,40% + sin las 6 monedas.
     "JZ": dict(dict(BASE, tp_min=0.40), nombre="JZ = J + freno + TP 0,40% + sin 6 monedas",     adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, freno_n=2, freno_h=24, freno_key="JZ", excluir=("WLD","ACE","ARB","NEAR","FET","TIA"), **BTC_PROT),
+    # JD: J + cuando BTC cae >=5% de su máx. 7d (libera <4%): no abre largos nuevos Y congela el DCA de los largos abiertos (mecanismo 2 del informe del 8/11).
+    "JD": dict(BASE, nombre="JD = J + BTC -5%: sin largos nuevos y DCA de largos congelado", adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, dca_freeze=True, **BTC_PROT),
     # JC: la misma estrategia que J (la del OSC REAL), pero SOLO para las monedas candidatas (observación).
     "JC": dict(BASE, nombre="JC = J en monedas CANDIDATAS (solo observación)",           adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, **BTC_PROT),
 }
