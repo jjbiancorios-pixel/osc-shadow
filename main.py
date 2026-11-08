@@ -1,5 +1,5 @@
 """main.py — Bot Oscilación SHADOW. Solo observa y registra ciclos simulados (4 configuraciones en paralelo). No opera."""
-import time, traceback
+import time, traceback, threading
 from datetime import datetime, timezone, timedelta
 import pandas as pd
 import config, db, data, engine, reporte, tg
@@ -155,6 +155,22 @@ def recolectar_mstrx():
     except Exception:
         log("mstrx ERROR (no afecta al Shadow):", traceback.format_exc()[-400:])
 
+def csv_velas(df):
+    """CSV sin encabezado: t (ms UTC, apertura de la vela), o, h, l, c, v. Mismo formato que usa el análisis."""
+    o = pd.DataFrame({"t": ((df.index - pd.Timestamp("1970-01-01")) // pd.Timedelta(milliseconds=1)).astype("int64"), "o": df.o.values, "h": df.h.values, "l": df.l.values, "c": df.c.values, "v": df.v.values})
+    return o.to_csv(index=False, header=False).encode()
+
+def enviar_velas_todas():
+    import zipfile, io
+    buf = io.BytesIO(); ok = []; mal = []
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for m in config.MONEDAS:
+            try:
+                df, _ = data.velas_cerradas(m); z.writestr(f"{m}USDT-1h.csv", csv_velas(df)); ok.append(m)
+            except Exception as e: mal.append(f"{m}: {str(e)[:60]}")
+            time.sleep(config.PAUSA_ENTRE_MONEDAS_S)
+    tg.enviar_archivo("velas_1h_todas.zip", buf.getvalue(), f"Velas 1h cerradas: {len(ok)} monedas" + (f" · fallaron: {'; '.join(mal)}" if mal else ""))
+
 def manejar(cmd):
     p = cmd.split(); c = p[0].lower().split("@")[0]
     if c in ("/estado", "/resumen"):
@@ -190,7 +206,16 @@ def manejar(cmd):
         import eth_cartera; return eth_cartera.texto_btc()
     if c == "/eth":
         import eth_cartera; return eth_cartera.texto()
-    if c == "/ayuda": return "/eth · /btc · /cand · /cand_csv · /resumen [días] · /abiertos · /csv · /mstrx · /mstrx_csv · /mstrx_res · /mstrx_ciclos · /patrones · /fr · /fr_abiertos · /fr_csv"
+    if c == "/velas":
+        m = p[1].upper() if len(p) > 1 else "BTC"
+        if m not in config.MONEDAS: return f"Moneda no reconocida: {m}. Uso: /velas BTC"
+        df, fuente = data.velas_cerradas(m)
+        tg.enviar_archivo(f"{m}USDT-1h.csv", csv_velas(df), f"Velas 1h cerradas de {m} ({fuente}): {df.index[0]} a {df.index[-1]} UTC, {len(df)} velas")
+        return f"Velas de {m} enviadas ({len(df)})."
+    if c == "/velas_todas":
+        threading.Thread(target=enviar_velas_todas, daemon=True).start()
+        return "Armando el ZIP con las velas 1h de todas las monedas (tarda ~1 minuto)..."
+    if c == "/ayuda": return "/velas [moneda] · /velas_todas · /eth · /btc · /cand · /cand_csv · /resumen [días] · /abiertos · /csv · /mstrx · /mstrx_csv · /mstrx_res · /mstrx_ciclos · /patrones · /fr · /fr_abiertos · /fr_csv"
     return None
 
 def texto_candidatas():
