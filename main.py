@@ -10,6 +10,10 @@ def procesar_moneda(m):
     df, fuente = data.velas_cerradas(m)
     P = engine.prep(df)
     try:
+        if m in config.MONEDAS:
+            import respiro; respiro.guardar(m, df)
+    except Exception: log("respiro guardar ERROR (no afecta al Shadow):", traceback.format_exc()[-200:])
+    try:
         if m in config.CANDIDATAS: raise StopIteration
         import franco
         x = engine.BTC_CTX.get(str(df.index[-1])); franco.actualizar(m, df, P['rsi4'], x[0] if x else None, tg.enviar)
@@ -128,6 +132,9 @@ def ciclo_horario():
     if nuevas_alertas:
         tg.enviar("⚠️ SHADOW: sin datos de BingX en %d pasadas seguidas para:\n%s" % (config.ALERTA_FALLOS_SEGUIDOS, "\n".join(nuevas_alertas[:10])))
     try:
+        import respiro; respiro.actualizar(tg.enviar)
+    except Exception: log("respiro ERROR (no afecta al Shadow):", traceback.format_exc()[-300:])
+    try:
         import eth_cartera; eth_cartera.actualizar()
     except Exception: log("eth_cartera ERROR (no afecta al Shadow):", traceback.format_exc()[-300:])
     try:
@@ -204,6 +211,10 @@ def manejar(cmd):
         import franco; return franco.texto_abiertos()
     if c == "/fr_csv":
         import franco; tg.enviar_archivo("francotirador.csv", franco.csv_senales(), "Señales del Francotirador"); return "CSV del Francotirador enviado."
+    if c == "/resp":
+        import respiro; return respiro.texto()
+    if c == "/resp_csv":
+        import respiro; tg.enviar_archivo("respiro_btc.csv", respiro.csv_senales(), "Señales del Respiro de BTC"); return "CSV del Respiro enviado."
     if c == "/cand":
         return texto_candidatas()
     if c == "/cand_csv":
@@ -221,7 +232,7 @@ def manejar(cmd):
     if c == "/velas_todas":
         threading.Thread(target=enviar_velas_todas, daemon=True).start()
         return "Armando el ZIP con las velas 1h de todas las monedas (tarda ~1 minuto)..."
-    if c == "/ayuda": return "/velas [moneda] · /velas_todas · /eth · /btc · /cand · /cand_csv · /resumen [días] · /abiertos · /csv · /mstrx · /mstrx_csv · /mstrx_res · /mstrx_ciclos · /patrones · /fr · /fr_abiertos · /fr_csv"
+    if c == "/ayuda": return "/velas [moneda] · /velas_todas · /eth · /btc · /cand · /cand_csv · /resumen [días] · /abiertos · /csv · /mstrx · /mstrx_csv · /mstrx_res · /mstrx_ciclos · /patrones · /fr · /fr_abiertos · /fr_csv · /resp · /resp_csv"
     return None
 
 def texto_candidatas():
@@ -254,6 +265,9 @@ def resumen_diario():
         try:
             import franco; tg.enviar(franco.texto())
         except Exception: log("resumen franco ERROR:", traceback.format_exc()[-300:])
+        try:
+            import respiro; tg.enviar(respiro.texto())
+        except Exception: log("resumen respiro ERROR:", traceback.format_exc()[-300:])
         try:
             import eth_cartera; tg.enviar(eth_cartera.texto()); tg.enviar(eth_cartera.texto_btc())
         except Exception: log("resumen eth_cartera ERROR:", traceback.format_exc()[-300:])
