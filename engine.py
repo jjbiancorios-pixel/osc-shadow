@@ -51,6 +51,8 @@ def _lev_senal(P, j, cfg):
 # Contexto de BTC por vela 1h (clave: apertura de la vela como str) -> (caída % desde máx. 7d, suba % desde mín. 7d, variación % 24h).
 # Lo carga main.py antes de procesar las monedas. Solo lo usan las configs con btc_dd (protección BTC).
 BTC_CTX = {}
+# 15/11/2026: un contexto por cada par (btc_dd, btc_dd_rel) distinto, para que cada config use SU umbral (antes todas usaban el de I).
+BTC_CTXS = {}
 
 def btc_contexto(idx, dd, up, r24, cfg):
     """Arma BTC_CTX con HISTÉRESIS (evita que el filtro se prenda y apague en el umbral):
@@ -71,7 +73,8 @@ def btc_contexto(idx, dd, up, r24, cfg):
 def btc_estado(ts, cfg):
     """'ok' | 'sin_largos' | 'stop' según BTC en la vela ts. Sin dato: 'ok' (no bloquea)."""
     if not cfg.get('btc_dd'): return 'ok'
-    x = BTC_CTX.get(str(ts))
+    ctx = BTC_CTXS.get((cfg['btc_dd'], cfg.get('btc_dd_rel', cfg['btc_dd'])), BTC_CTX)
+    x = ctx.get(str(ts))
     if x is None: return 'ok'
     if x[4]: return 'stop'
     if x[3]: return 'sin_largos'

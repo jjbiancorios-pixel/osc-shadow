@@ -64,6 +64,12 @@ def actualizar_btc():
         r24 = c.pct_change(24) * 100
         cfg = config.CONFIGS["I"]
         engine.BTC_CTX = engine.btc_contexto(df.index, dd, up, r24, cfg)
+        ctxs = {}
+        for _c in config.CONFIGS.values():
+            if _c.get('btc_dd'):
+                _k = (_c['btc_dd'], _c.get('btc_dd_rel', _c['btc_dd']))
+                if _k not in ctxs: ctxs[_k] = engine.btc_contexto(df.index, dd, up, r24, _c)
+        engine.BTC_CTXS = ctxs
         est = engine.btc_estado(df.index[-1], cfg)
         prev = db.meta_get("btc_estado", "ok")
         if est != prev:

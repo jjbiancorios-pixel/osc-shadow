@@ -76,6 +76,9 @@ CONFIGS = {
     "JZ": dict(dict(BASE, tp_min=0.40), nombre="JZ = J + freno + TP 0,40% + sin 6 monedas",     adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, freno_n=2, freno_h=24, freno_key="JZ", excluir=("WLD","ACE","ARB","NEAR","FET","TIA"), **BTC_PROT),
     # JD: J + cuando BTC cae >=5% de su máx. 7d (libera <4%): no abre largos nuevos Y congela el DCA de los largos abiertos (mecanismo 2 del informe del 8/11).
     "JD": dict(BASE, nombre="JD = J + BTC -5%: sin largos nuevos y DCA de largos congelado", adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, dca_freeze=True, **BTC_PROT),
+    # J7 (15/11/2026): J con el SL del OSC REAL (8% del promedio tras la 6ª entrada) y bloqueo de largos nuevos desde BTC −7% del máx. 7d
+    # (se libera recién a −6%). Prueba en vivo de la regla elegida en la simulación de 219 días; se compara contra el OSC REAL.
+    "J7": dict(dict(BASE, sl_dist=8.0), nombre="J7 = J con SL 8% + sin largos si BTC -7% de máx. 7d", adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, **dict(BTC_PROT, btc_dd=7.0, btc_dd_rel=6.0)),
     # JC: la misma estrategia que J (la del OSC REAL), pero SOLO para las monedas candidatas (observación).
     "JC": dict(BASE, nombre="JC = J en monedas CANDIDATAS (solo observación)",           adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, **BTC_PROT),
 }
