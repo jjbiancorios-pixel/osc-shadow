@@ -135,6 +135,9 @@ def ciclo_horario():
         import respiro; respiro.actualizar(tg.enviar)
     except Exception: log("respiro ERROR (no afecta al Shadow):", traceback.format_exc()[-300:])
     try:
+        import r12; r12.actualizar()
+    except Exception: log("r12 ERROR (no afecta al Shadow):", traceback.format_exc()[-300:])
+    try:
         import eth_cartera; eth_cartera.actualizar()
     except Exception: log("eth_cartera ERROR (no afecta al Shadow):", traceback.format_exc()[-300:])
     try:
@@ -211,6 +214,10 @@ def manejar(cmd):
         import franco; return franco.texto_abiertos()
     if c == "/fr_csv":
         import franco; tg.enviar_archivo("francotirador.csv", franco.csv_senales(), "Señales del Francotirador"); return "CSV del Francotirador enviado."
+    if c == "/r12":
+        import r12; return r12.texto()
+    if c == "/r12_csv":
+        import r12; tg.enviar_archivo("r12.csv", r12.csv_senales(), "Señales Riesgo 1 : Ganancia 2"); return "CSV de Riesgo 1:2 enviado."
     if c == "/resp":
         import respiro; return respiro.texto()
     if c == "/resp_csv":
@@ -232,7 +239,7 @@ def manejar(cmd):
     if c == "/velas_todas":
         threading.Thread(target=enviar_velas_todas, daemon=True).start()
         return "Armando el ZIP con las velas 1h de todas las monedas (tarda ~1 minuto)..."
-    if c == "/ayuda": return "/velas [moneda] · /velas_todas · /eth · /btc · /cand · /cand_csv · /resumen [días] · /abiertos · /csv · /mstrx · /mstrx_csv · /mstrx_res · /mstrx_ciclos · /patrones · /fr · /fr_abiertos · /fr_csv · /resp · /resp_csv"
+    if c == "/ayuda": return "/velas [moneda] · /velas_todas · /eth · /btc · /cand · /cand_csv · /resumen [días] · /abiertos · /csv · /mstrx · /mstrx_csv · /mstrx_res · /mstrx_ciclos · /patrones · /fr · /fr_abiertos · /fr_csv · /resp · /resp_csv · /r12 · /r12_csv"
     return None
 
 def texto_candidatas():
@@ -267,6 +274,7 @@ def resumen_diario():
         except Exception: log("resumen franco ERROR:", traceback.format_exc()[-300:])
         try:
             import respiro; tg.enviar(respiro.texto())
+            import r12; tg.enviar(r12.texto())
         except Exception: log("resumen respiro ERROR:", traceback.format_exc()[-300:])
         try:
             import eth_cartera; tg.enviar(eth_cartera.texto()); tg.enviar(eth_cartera.texto_btc())
