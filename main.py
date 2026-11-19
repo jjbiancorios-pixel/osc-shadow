@@ -144,6 +144,9 @@ def ciclo_horario():
         import tend; tend.actualizar()
     except Exception: log("tend ERROR (no afecta al Shadow):", traceback.format_exc()[-300:])
     try:
+        import explora; explora.actualizar(tg.enviar)
+    except Exception: log("explora ERROR (no afecta al Shadow):", traceback.format_exc()[-300:])
+    try:
         import eth_cartera; eth_cartera.actualizar()
     except Exception: log("eth_cartera ERROR (no afecta al Shadow):", traceback.format_exc()[-300:])
     try:
@@ -220,6 +223,12 @@ def manejar(cmd):
         import franco; return franco.texto_abiertos()
     if c == "/fr_csv":
         import franco; tg.enviar_archivo("francotirador.csv", franco.csv_senales(), "Señales del Francotirador"); return "CSV del Francotirador enviado."
+    if c == "/op":
+        import explora; return explora.registrar_op(p)
+    if c in ("/expl", "/ops"):
+        import explora; return explora.texto()
+    if c == "/expl_csv":
+        import explora; tg.enviar_archivo("explorador_y_ops.csv", explora.csv_todo(), "Explorador y operaciones"); return "CSV del explorador enviado."
     if c == "/tend":
         import tend; return tend.texto()
     if c == "/tend_csv":
@@ -253,7 +262,7 @@ def manejar(cmd):
     if c == "/velas_todas":
         threading.Thread(target=enviar_velas_todas, daemon=True).start()
         return "Armando el ZIP con las velas 1h de todas las monedas (tarda ~1 minuto)..."
-    if c == "/ayuda": return "/velas [moneda] · /velas_todas · /eth · /btc · /cand · /cand_csv · /resumen [días] · /abiertos · /csv · /mstrx · /mstrx_csv · /mstrx_res · /mstrx_ciclos · /patrones · /fr · /fr_abiertos · /fr_csv · /resp · /resp_csv · /r12 · /r12_csv · /q5 · /q5_csv · /tend · /tend_csv"
+    if c == "/ayuda": return "/velas [moneda] · /velas_todas · /eth · /btc · /cand · /cand_csv · /resumen [días] · /abiertos · /csv · /mstrx · /mstrx_csv · /mstrx_res · /mstrx_ciclos · /patrones · /fr · /fr_abiertos · /fr_csv · /resp · /resp_csv · /r12 · /r12_csv · /q5 · /q5_csv · /tend · /tend_csv · /expl · /expl_csv · /op"
     return None
 
 def texto_candidatas():
@@ -291,6 +300,7 @@ def resumen_diario():
             import r12; tg.enviar(r12.texto())
             import q5; tg.enviar(q5.texto())
             import tend; tg.enviar(tend.texto())
+            import explora; tg.enviar(explora.texto())
         except Exception: log("resumen respiro ERROR:", traceback.format_exc()[-300:])
         try:
             import eth_cartera; tg.enviar(eth_cartera.texto()); tg.enviar(eth_cartera.texto_btc())
