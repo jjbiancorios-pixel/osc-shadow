@@ -147,6 +147,15 @@ def ciclo_horario():
         import explora; explora.actualizar(tg.enviar)
     except Exception: log("explora ERROR (no afecta al Shadow):", traceback.format_exc()[-300:])
     try:
+        import deteccion; deteccion.actualizar(tg.enviar)
+    except Exception: log("deteccion ERROR (no afecta al Shadow):", traceback.format_exc()[-300:])
+    try:
+        import regimen; regimen.actualizar()
+    except Exception: log("regimen ERROR (no afecta al Shadow):", traceback.format_exc()[-300:])
+    try:
+        import maker; maker.actualizar()
+    except Exception: log("maker ERROR (no afecta al Shadow):", traceback.format_exc()[-300:])
+    try:
         import eth_cartera; eth_cartera.actualizar()
     except Exception: log("eth_cartera ERROR (no afecta al Shadow):", traceback.format_exc()[-300:])
     try:
@@ -229,6 +238,18 @@ def manejar(cmd):
         import explora; return explora.texto()
     if c == "/expl_csv":
         import explora; tg.enviar_archivo("explorador_y_ops.csv", explora.csv_todo(), "Explorador y operaciones"); return "CSV del explorador enviado."
+    if c == "/det":
+        import deteccion; return deteccion.texto()
+    if c == "/det_csv":
+        import deteccion; tg.enviar_archivo("detector.csv", deteccion.csv_todo(), "Detector propio: alertas y resultados"); return "CSV del detector enviado."
+    if c == "/maker":
+        import maker; return maker.texto()
+    if c == "/maker_csv":
+        import maker; tg.enviar_archivo("maker.csv", maker.csv_todo(), "MAKER: llenado de la 1a entrada como orden límite"); return "CSV de MAKER enviado."
+    if c == "/regimen":
+        import regimen; return regimen.texto(len(p) > 1 and p[1].lower() == "todas")
+    if c == "/regimen_csv":
+        import regimen; tg.enviar_archivo("regimen.csv", regimen.csv_todo(), "Ciclos con régimen de BTC"); return "CSV de RÉGIMEN enviado."
     if c == "/tend":
         import tend; return tend.texto()
     if c == "/tend_csv":
@@ -268,7 +289,7 @@ def manejar(cmd):
     if c == "/velas_todas":
         threading.Thread(target=enviar_velas_todas, daemon=True).start()
         return "Armando el ZIP con las velas 1h de todas las monedas (tarda ~1 minuto)..."
-    if c == "/ayuda": return "/velas [moneda] · /velas_todas · /velas_huellas · /velas_rey · /liq [moneda] · /liq_csv · /velas_hist MONEDA AAAA-MM-DD [días] · /eth · /btc · /cand · /cand_csv · /resumen [días] · /abiertos · /csv · /mstrx · /mstrx_csv · /mstrx_res · /mstrx_ciclos · /patrones · /fr · /fr_abiertos · /fr_csv · /resp · /resp_csv · /r12 · /r12_csv · /q5 · /q5_csv · /tend · /tend_csv · /expl · /expl_csv · /op"
+    if c == "/ayuda": return "/velas [moneda] · /velas_todas · /velas_huellas · /velas_rey · /liq [moneda] · /liq_csv · /velas_hist MONEDA AAAA-MM-DD [días] · /eth · /btc · /cand · /cand_csv · /resumen [días] · /abiertos · /csv · /mstrx · /mstrx_csv · /mstrx_res · /mstrx_ciclos · /patrones · /fr · /fr_abiertos · /fr_csv · /resp · /resp_csv · /r12 · /r12_csv · /q5 · /q5_csv · /tend · /tend_csv · /expl · /expl_csv · /op · /det · /det_csv · /maker · /maker_csv · /regimen [todas] · /regimen_csv"
     return None
 
 def texto_candidatas():
@@ -309,6 +330,11 @@ def resumen_diario():
             import explora; tg.enviar(explora.texto())
             import liquid; tg.enviar(liquid.texto())
         except Exception: log("resumen respiro ERROR:", traceback.format_exc()[-300:])
+        try:
+            import deteccion; tg.enviar(deteccion.texto())
+            import maker; tg.enviar(maker.texto())
+            import regimen; tg.enviar(regimen.texto())
+        except Exception: log("resumen maker/regimen ERROR:", traceback.format_exc()[-300:])
         try:
             import eth_cartera; tg.enviar(eth_cartera.texto()); tg.enviar(eth_cartera.texto_btc())
         except Exception: log("resumen eth_cartera ERROR:", traceback.format_exc()[-300:])
