@@ -259,12 +259,16 @@ def manejar(cmd):
         df, fuente = data.velas_cerradas(m)
         tg.enviar_archivo(f"{m}USDT-1h.csv", csv_velas(df), f"Velas 1h cerradas de {m} ({fuente}): {df.index[0]} a {df.index[-1]} UTC, {len(df)} velas")
         return f"Velas de {m} enviadas ({len(df)})."
+    if c == "/liq":
+        import liquid; return liquid.texto(p[1] if len(p) > 1 else None)
+    if c == "/liq_csv":
+        import liquid; tg.enviar_archivo("liquidaciones.zip", liquid.zip_todo(), "Liquidaciones, OI y funding grabados"); return "ZIP de liquidaciones enviado."
     if c in ("/velas_huellas", "/velas_hist", "/velas_rey"):
         import historico; return historico.comando(p)
     if c == "/velas_todas":
         threading.Thread(target=enviar_velas_todas, daemon=True).start()
         return "Armando el ZIP con las velas 1h de todas las monedas (tarda ~1 minuto)..."
-    if c == "/ayuda": return "/velas [moneda] · /velas_todas · /velas_huellas · /velas_rey · /velas_hist MONEDA AAAA-MM-DD [días] · /eth · /btc · /cand · /cand_csv · /resumen [días] · /abiertos · /csv · /mstrx · /mstrx_csv · /mstrx_res · /mstrx_ciclos · /patrones · /fr · /fr_abiertos · /fr_csv · /resp · /resp_csv · /r12 · /r12_csv · /q5 · /q5_csv · /tend · /tend_csv · /expl · /expl_csv · /op"
+    if c == "/ayuda": return "/velas [moneda] · /velas_todas · /velas_huellas · /velas_rey · /liq [moneda] · /liq_csv · /velas_hist MONEDA AAAA-MM-DD [días] · /eth · /btc · /cand · /cand_csv · /resumen [días] · /abiertos · /csv · /mstrx · /mstrx_csv · /mstrx_res · /mstrx_ciclos · /patrones · /fr · /fr_abiertos · /fr_csv · /resp · /resp_csv · /r12 · /r12_csv · /q5 · /q5_csv · /tend · /tend_csv · /expl · /expl_csv · /op"
     return None
 
 def texto_candidatas():
@@ -303,6 +307,7 @@ def resumen_diario():
             import q5; tg.enviar(q5.texto())
             import tend; tg.enviar(tend.texto())
             import explora; tg.enviar(explora.texto())
+            import liquid; tg.enviar(liquid.texto())
         except Exception: log("resumen respiro ERROR:", traceback.format_exc()[-300:])
         try:
             import eth_cartera; tg.enviar(eth_cartera.texto()); tg.enviar(eth_cartera.texto_btc())
@@ -312,6 +317,9 @@ def resumen_diario():
 def main():
     db.init()
     log("Bot Oscilación SHADOW arrancando. DB:", config.DB_PATH)
+    try:
+        import liquid; liquid.arrancar(log)
+    except Exception: log("liquid ERROR al arrancar (no afecta al Shadow):", traceback.format_exc()[-300:])
     ok, fallos, errores = ciclo_horario()
     tg.enviar(f"🧪 <b>Bot Oscilación SHADOW</b> arrancó (sin dinero, sin órdenes).\nMonedas leídas: {ok}/{len(config.MONEDAS)}. Candidatas (solo observación, config JC): {len(config.CANDIDATAS)} monedas en prueba, /cand para verlas.\nConfigs: A–K en paralelo (D = B + trailing; E y F = fix22 con apalancamiento variable por ATR%; G y H = F con otra salida; I, J y K = B, D y G + protección por BTC; JF = J + freno (2 SL en 24h → pausa 24h); JT = J con piso de TP 0,40%; JX = J sin las 6 monedas con más SL; JZ = freno + TP 0,40% + sin esas 6 monedas; JS = J con SL 1,5%; JE5/JE6/JP5/JP4/JQ = J + cierre a equilibrio total o parcial según la entrada; JN7/JN8 = J con 7 u 8 entradas; BT1/BT2 = bot nuevo de BTC (Binance) en seguimiento virtual, comando /btc; BX = referencia del Bot BingX en ETH (alimenta /eth: cartera virtual 50/50 vs regla EMA200); JM15/JM20 = J con tope de 15 y 20 ciclos simultáneos (el reporte ahora usa tope 10 como el real); todas en observación).\n"
               + ("Con error: " + "; ".join(errores[:8]) if errores else "")
