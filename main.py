@@ -259,12 +259,12 @@ def manejar(cmd):
         df, fuente = data.velas_cerradas(m)
         tg.enviar_archivo(f"{m}USDT-1h.csv", csv_velas(df), f"Velas 1h cerradas de {m} ({fuente}): {df.index[0]} a {df.index[-1]} UTC, {len(df)} velas")
         return f"Velas de {m} enviadas ({len(df)})."
-    if c in ("/velas_huellas", "/velas_hist"):
+    if c in ("/velas_huellas", "/velas_hist", "/velas_rey"):
         import historico; return historico.comando(p)
     if c == "/velas_todas":
         threading.Thread(target=enviar_velas_todas, daemon=True).start()
         return "Armando el ZIP con las velas 1h de todas las monedas (tarda ~1 minuto)..."
-    if c == "/ayuda": return "/velas [moneda] · /velas_todas · /velas_huellas · /velas_hist MONEDA AAAA-MM-DD [días] · /eth · /btc · /cand · /cand_csv · /resumen [días] · /abiertos · /csv · /mstrx · /mstrx_csv · /mstrx_res · /mstrx_ciclos · /patrones · /fr · /fr_abiertos · /fr_csv · /resp · /resp_csv · /r12 · /r12_csv · /q5 · /q5_csv · /tend · /tend_csv · /expl · /expl_csv · /op"
+    if c == "/ayuda": return "/velas [moneda] · /velas_todas · /velas_huellas · /velas_rey · /velas_hist MONEDA AAAA-MM-DD [días] · /eth · /btc · /cand · /cand_csv · /resumen [días] · /abiertos · /csv · /mstrx · /mstrx_csv · /mstrx_res · /mstrx_ciclos · /patrones · /fr · /fr_abiertos · /fr_csv · /resp · /resp_csv · /r12 · /r12_csv · /q5 · /q5_csv · /tend · /tend_csv · /expl · /expl_csv · /op"
     return None
 
 def texto_candidatas():

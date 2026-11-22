@@ -145,6 +145,9 @@ def comando(p):
         v = _ventanas()
         threading.Thread(target=_correr, args=(v, "velas_huellas.zip", "Velas Huellas"), daemon=True).start()
         return f"Bajando velas 15m/1h/4h de {len(v)} monedas de tus operaciones (Bitunix → BingX → Binance). Tarda unos minutos; llega un ZIP."
+    if c == "/velas_rey":
+        threading.Thread(target=_correr_rey, daemon=True).start()
+        return f"Bajando velas 4h/1h/15m de {len(_rey_pedidos())} señales del canal Rey (Bitunix → BingX → Binance). Tarda 5–10 minutos; llega un ZIP."
     if c == "/velas_hist":
         if len(p) < 3: return "Uso: /velas_hist MONEDA AAAA-MM-DD [días]   (ej: /velas_hist NEAR 2026-05-12 2)"
         m = p[1].upper().replace("USDT", "").replace("-", "")
@@ -154,3 +157,179 @@ def comando(p):
         threading.Thread(target=_correr, args=({m: (d0, d0 + pd.Timedelta(days=dias))}, f"velas_{m}_{p[2]}.zip", f"Velas {m} {p[2]}"), daemon=True).start()
         return f"Bajando velas 15m/1h/4h de {m} alrededor del {p[2]} ({dias} día/s). Llega un ZIP."
     return None
+
+
+# ───────── /velas_rey: señales del canal "El Rey Rentable" (125, del 01/05 al 21/11/2026; hora Argentina) ─────────
+# n,moneda,lado,fecha,hora   (hora "22:2" o fecha con "?" = dato incompleto: se usa lo que se pueda)
+REY = """1,QNT,L,2026-11-21,11:23
+2,KERNEL,C,2026-11-20,10:33
+3,NAORIS,L,2026-11-19,12:52
+4,PUMPFUN,L,2026-11-18,22:2
+5,EVAA,L,2026-11-15,17:42
+6,NEAR,L,2026-11-16,11:38
+7,STRK,L,2026-11-13,11:27
+8,INJ,L,2026-11-12,11:43
+9,1000PEPE,L,2026-11-11,11:18
+10,NEAR,L,2026-11-08,11:08
+11,BCH,L,2026-11-08,18:25
+12,ASTER,L,2026-11-09,13:46
+13,DOT,L,2026-11-06,12:19
+14,ZEC,L,2026-11-05,12:52
+15,WLD,L,2026-11-03,10:43
+16,ENA,L,2026-11-01,18:21
+17,LDO,C,2026-11-02,22:08
+18,APT,L,2026-10-31,12:39
+19,TAO,L,2026-10-30,14:18
+20,AKE,L,2026-10-27,11:54
+21,ENA,L,2026-10-26,13:07
+22,SUI,L,2026-10-25,17:34
+23,ORDER,L,2026-10-25,10:54
+24,WOO,L,2026-10-24,10:59
+25,TAO,C,2026-10-22,11:01
+26,STRK,L,2026-10-21,16:26
+27,SUI,L,2026-10-21,11:06
+28,LSK,L,2026-10-20,23:21
+29,ETC,L,2026-10-19,22:33
+30,ENA,L,2026-10-10,11:14
+31,WLD,L,2026-10-11,12:15
+32,SUI,L,2026-10-11,17:34
+33,GRASS,L,2026-10-11,20:35
+34,UNI,L,2026-10-12,13:13
+35,ENA,L,2026-10-13,16:17
+36,OP,L,2026-10-15,11:47
+37,STRK,L,2026-10-16,10:34
+38,ASTER,L,2026-10-17,11:20
+39,TIA,C,2026-10-17,12:02
+40,NEAR,L,2026-10-18,10:37
+41,TAO,L,2026-10-19,19:42
+42,STRK,C,2026-10-02,16:37
+43,WLD,L,2026-10-01,19:54
+44,XPL,L,2026-10-03,11:06
+45,ASTER,L,2026-10-04,12:02
+46,ARB,L,2026-10-05,16:52
+47,PUMPFUN,L,2026-10-07,22:21
+48,TIA,L,2026-10-09,12:52
+49,MINA,L,2026-10-08,21:48
+50,ZEC,L,2026-10-08,11:03
+51,ARB,L,2026-09-17,18:16
+52,HEMI,L,2026-09-18,20:45
+53,USELESS,C,2026-09-20,11:14
+54,VVV,C,2026-09-21,00:10
+55,NEAR,L,2026-09-21,17:21
+56,SUI,C,2026-09-21,22:23
+57,TAO,C,2026-09-22,13:02
+58,ASTER,L,2026-09-23,12:39
+59,FARTCOIN,L,2026-09-24,21:09
+60,XPL,L,2026-09-25,21:34
+61,TST,L,2026-09-26,11:18
+62,NEAR,C,2026-09-27,13:55
+63,HBAR,C,2026-09-28,09:55
+64,NEAR,C,2026-09-29,12:10
+65,QNT,C,2026-09-30,16:15
+66,AAVE,C,2026-08-24,12:41
+67,ICP,L,2026-08-25,19:58
+68,FARTCOIN,C,2026-08-26,15:52
+69,WIF,L,2026-08-27,14:00
+70,ENA,L,2026-08-29,12:08
+71,NEAR,L,2026-08-30,21:38
+72,FARTCOIN,L,2026-08-31,12:03
+73,ARB,L,2026-09-02,12:37
+74,BTR,L,2026-09-02,20:02
+75,CAP,L,2026-09-03,20:40
+76,USELESS,C,2026-09-04,11:59
+77,ASTER,L,2026-09-04,17:42
+78,TRUMP,L,2026-09-05,13:30
+79,WLD,L,2026-09-10,11:00
+80,ENA,L,2026-09-10,19:30
+81,PUMPFUN,L,2026-09-12,11:52
+82,SUI,C,2026-09-13,11:09
+83,ARK,L,2026-09-15,12:42
+84,AIN,C,2026-09-15,14:54
+85,TIA,L,2026-09-16,18:05
+86,1000PEPE,C,2026-07-17,19:25
+87,NEAR,L,2026-07-18,12:50
+88,BASED,L,2026-07-19,15:17
+89,APT,L,2026-07-20,18:50
+90,ENA,L,2026-07-22,11:13
+91,ICP,L,2026-07-23,15:27
+92,PUMP,L,2026-07-25,21:10
+93,HYPE,L,2026-07-28,13:24
+94,POL,L,2026-07-29,11:27
+95,ADA,L,2026-07-31,12:58
+96,OP,L,2026-08-06,15:26
+97,HFT,L,2026-08-06,22:41
+98,NEAR,L,2026-08-11,17:48
+99,AVAAI,L,2026-08-12,19:56
+100,XRP,L,2026-08-14,11:24
+101,LTC,L,2026-08-14,21:20
+102,NEAR,L,2026-08-17,17:47
+103,HEMI,L,2026-08-21,19:12
+104,ONDO,L,2026-08-22,11:24
+105,PENGU,L,2026-08-22,14:41
+106,ORCA,C,2026-05-01,21:11
+107,ALCH,L,2026-05-03,21:13
+108,CHIP,L,2026-05-09,14:01
+109,SAHARA,C,2026-05-10,12:40
+110,USELESS,L,2026-05-10,15:23
+111,BILL,L,2026-05-10,17:01
+112,KERNEL,L,2026-05-15,12:57
+113,BSB,L,2026-05-19,16:31
+114,NEAR,C,2026-05-23,12:48
+115,EIGEN,L,2026-05-?,11:13
+116,ENA,L,2026-06-14,12:05
+117,RE,L,2026-06-22,19:55
+118,BOME,L,2026-06-27,11:52
+119,LAB,L,2026-06-28,11:15
+120,NEAR,L,2026-06-28,15:07
+121,LAB,C,2026-06-29,19:22
+122,SUI,L,2026-07-11,12:12
+123,VELVET,L,2026-07-12,12:10
+124,BCH,L,2026-07-15,16:08
+125,ENA,L,2026-07-17,11:02"""
+ALIAS = {"PUMPFUN": ["PUMP"], "PUMP": ["PUMPFUN"], "1000PEPE": ["PEPE"]}
+VENT_REY = {"4h": (pd.Timedelta(days=10), pd.Timedelta(days=4)),
+            "1h": (pd.Timedelta(days=3), pd.Timedelta(days=4)),
+            "15m": (pd.Timedelta(hours=12), pd.Timedelta(days=2))}
+
+def _rey_pedidos():
+    out = []
+    for ln in REY.strip().splitlines():
+        n, m, lado, f, h = [x.strip() for x in ln.split(",")]
+        if "?" in f: continue
+        try:
+            hh = h if len(h) == 5 else "12:00"
+            t = pd.Timestamp(f"{f} {hh}") + ART
+        except Exception: continue
+        out.append((n, m, t))
+    return out
+
+def _bajar_alias(m, tf, a, b):
+    try: return bajar(m, tf, a, b) + (m,)
+    except Exception as e:
+        err = str(e)
+        for alt in ALIAS.get(m, []):
+            try: return bajar(alt, tf, a, b) + (alt,)
+            except Exception: pass
+        raise ValueError(err)
+
+def _armar_rey():
+    buf = io.BytesIO(); log = []; ok = 0; peds = _rey_pedidos()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for n, m, t in peds:
+            for tf, (antes, despues) in VENT_REY.items():
+                try:
+                    df, fuente, usado = _bajar_alias(m, tf, t - antes, t + despues)
+                    z.writestr(f"{int(n):03d}_{m}_{tf}.csv", df.to_csv(index=False)); ok += 1
+                    log.append(f"{n} {m} {tf}: {len(df)} velas ({fuente}{'' if usado == m else ' como ' + usado})")
+                except Exception as e:
+                    log.append(f"{n} {m} {tf}: FALLÓ → {str(e)[:160]}")
+        z.writestr("fuentes.txt", "Horas en UTC; t = apertura de la vela (ms).\n" + "\n".join(log))
+        z.writestr("senales_rey.csv", "n,moneda,lado,fecha_ART,hora_ART\n" + REY.strip() + "\n")
+    fallas = sum(1 for x in log if "FALLÓ" in x)
+    tg.enviar_archivo("velas_rey.zip", buf.getvalue(), f"Velas señales Rey: {ok} archivos de {len(peds)} señales" + (f" · {fallas} fallaron (ver fuentes.txt)" if fallas else ""))
+
+def _correr_rey():
+    if not _ocupado.acquire(blocking=False): tg.enviar("⏳ Ya estoy bajando velas; esperá a que llegue el archivo anterior."); return
+    try: _armar_rey()
+    except Exception as e: tg.enviar(f"❌ Error bajando velas Rey: {str(e)[:200]}")
+    finally: _ocupado.release()
