@@ -70,6 +70,14 @@ def btc_contexto(idx, dd, up, r24, cfg):
         ctx[str(t)] = (float(a), float(b), float(d), sl, stp)
     return ctx
 
+# Estado de BTC por día (22/11/2026, config JR): {"AAAA-MM-DD": "alc" | "rango" | "baj"}, vigente durante ese día UTC
+# (calculado con el cierre diario del día anterior). Lo carga estado_btc.py antes de procesar las monedas.
+ESTADO_BTC = {}
+
+def estado_btc_de(ts):
+    """Estado de BTC vigente al CIERRE de la vela 1h que abre en ts (sin mirar el futuro). None si no hay dato."""
+    return ESTADO_BTC.get(str((pd.Timestamp(ts) + pd.Timedelta(hours=1)).date()))
+
 def btc_estado(ts, cfg):
     """'ok' | 'sin_largos' | 'stop' según BTC en la vela ts. Sin dato: 'ok' (no bloquea)."""
     if not cfg.get('btc_dd'): return 'ok'
@@ -208,11 +216,19 @@ def paso(st, P, j, cfg, L_flujo=5):
     # idle: evalúa señal al cierre de esta vela (la vela en que cerró un ciclo ya retornó arriba, igual que la sim)
     a = P['adx'][j]; r = P['rsi4'][j]
     if cfg.get('freno_n') and freno_activo(pd.Timestamp(P['idx'][j]) + pd.Timedelta(hours=1), cfg): return None
-    if a == a and r == r and a < cfg['adx_th']:
+    adx_th, rl, rs, largos, cortos = cfg['adx_th'], cfg['rl'], cfg['rs'], True, True
+    if cfg.get('por_estado'):
+        # JR (22/11/2026): reglas según el estado de BTC (alcista / rango / bajista) del cierre diario anterior. Sin dato: reglas base.
+        q = cfg['por_estado'].get(estado_btc_de(P['idx'][j])) or {}
+        adx_th = q.get('adx_th', adx_th); rl = q.get('rl', rl); rs = q.get('rs', rs)
+        largos = q.get('largos', True); cortos = q.get('cortos', True)
+    if a == a and r == r and a < adx_th:
         bs = btc_estado(P['idx'][j], cfg)
         if bs == 'stop': return None
-        if r <= cfg['rl']:
-            if bs == 'sin_largos': return None
+        if r <= rl:
+            if bs == 'sin_largos' or not largos: return None
             st.update(fase='pending', side=1, L=_lev_senal(P, j, cfg))
-        elif r >= cfg['rs']: st.update(fase='pending', side=-1, L=_lev_senal(P, j, cfg))
+        elif r >= rs:
+            if not cortos: return None
+            st.update(fase='pending', side=-1, L=_lev_senal(P, j, cfg))
     return None

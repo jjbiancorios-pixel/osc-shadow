@@ -79,6 +79,13 @@ CONFIGS = {
     # J7 (15/11/2026): J con el SL del OSC REAL (8% del promedio tras la 6ª entrada) y bloqueo de largos nuevos desde BTC −7% del máx. 7d
     # (se libera recién a −6%). Prueba en vivo de la regla elegida en la simulación de 219 días; se compara contra el OSC REAL.
     "J7": dict(dict(BASE, sl_dist=8.0), nombre="J7 = J con SL 8% + sin largos si BTC -7% de máx. 7d", adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, **dict(BTC_PROT, btc_dd=7.0, btc_dd_rel=6.0)),
+    # JR (22/11/2026): J7 con reglas según el ESTADO de BTC (cierre diario anterior; alcista = BTC sobre su media de 50 días y +5% o más
+    # en 30 días; bajista = bajo la media y −5% o más en 30 días; rango = el resto). Se compara contra J7 (control).
+    # Bajista: sin largos y cortos con RSI 58 · Rango: largos con RSI 42 · Alcista: RSI largo 42 y ADX hasta 30.
+    # Ver claude/OSC_por_Estado_BTC_2026-11-22.md del proyecto. Solo observación.
+    "JR": dict(dict(BASE, sl_dist=8.0), nombre="JR = J7 por estado de BTC (bajista sin largos)", adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0,
+               por_estado={"baj": dict(largos=False, rs=58), "rango": dict(rl=42), "alc": dict(rl=42, adx_th=30)},
+               **dict(BTC_PROT, btc_dd=7.0, btc_dd_rel=6.0)),
     # JC: la misma estrategia que J (la del OSC REAL), pero SOLO para las monedas candidatas (observación).
     "JC": dict(BASE, nombre="JC = J en monedas CANDIDATAS (solo observación)",           adx_th=25, rl=38, rs=62, dca=2.0, max_e=6, trail_x=1.0, **BTC_PROT),
 }

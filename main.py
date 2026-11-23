@@ -95,6 +95,9 @@ def cargar_freno():
 
 def ciclo_horario():
     actualizar_btc(); cargar_freno()
+    try:
+        import estado_btc; estado_btc.actualizar(tg.enviar)
+    except Exception: log("estado_btc ERROR (no afecta al Shadow; JR usa reglas de J7 sin dato):", traceback.format_exc()[-300:])
     ok = cerrados = 0; fallidas = {}
     def intentar(mon):
         nonlocal ok, cerrados
@@ -246,6 +249,8 @@ def manejar(cmd):
         import maker; return maker.texto()
     if c == "/maker_csv":
         import maker; tg.enviar_archivo("maker.csv", maker.csv_todo(), "MAKER: llenado de la 1a entrada como orden límite"); return "CSV de MAKER enviado."
+    if c == "/estado_btc":
+        import estado_btc; return estado_btc.texto()
     if c == "/regimen":
         import regimen; return regimen.texto(len(p) > 1 and p[1].lower() == "todas")
     if c == "/regimen_csv":
@@ -289,7 +294,7 @@ def manejar(cmd):
     if c == "/velas_todas":
         threading.Thread(target=enviar_velas_todas, daemon=True).start()
         return "Armando el ZIP con las velas 1h de todas las monedas (tarda ~1 minuto)..."
-    if c == "/ayuda": return "/velas [moneda] · /velas_todas · /velas_huellas · /velas_rey · /liq [moneda] · /liq_csv · /velas_hist MONEDA AAAA-MM-DD [días] · /eth · /btc · /cand · /cand_csv · /resumen [días] · /abiertos · /csv · /mstrx · /mstrx_csv · /mstrx_res · /mstrx_ciclos · /patrones · /fr · /fr_abiertos · /fr_csv · /resp · /resp_csv · /r12 · /r12_csv · /q5 · /q5_csv · /tend · /tend_csv · /expl · /expl_csv · /op · /det · /det_csv · /maker · /maker_csv · /regimen [todas] · /regimen_csv"
+    if c == "/ayuda": return "/velas [moneda] · /velas_todas · /velas_huellas · /velas_rey · /liq [moneda] · /liq_csv · /velas_hist MONEDA AAAA-MM-DD [días] · /eth · /btc · /cand · /cand_csv · /resumen [días] · /abiertos · /csv · /mstrx · /mstrx_csv · /mstrx_res · /mstrx_ciclos · /patrones · /fr · /fr_abiertos · /fr_csv · /resp · /resp_csv · /r12 · /r12_csv · /q5 · /q5_csv · /tend · /tend_csv · /expl · /expl_csv · /op · /det · /det_csv · /maker · /maker_csv · /regimen [todas] · /regimen_csv · /estado_btc"
     return None
 
 def texto_candidatas():
@@ -334,6 +339,7 @@ def resumen_diario():
             import deteccion; tg.enviar(deteccion.texto())
             import maker; tg.enviar(maker.texto())
             import regimen; tg.enviar(regimen.texto())
+            import estado_btc; tg.enviar(estado_btc.texto())
         except Exception: log("resumen maker/regimen ERROR:", traceback.format_exc()[-300:])
         try:
             import eth_cartera; tg.enviar(eth_cartera.texto()); tg.enviar(eth_cartera.texto_btc())
