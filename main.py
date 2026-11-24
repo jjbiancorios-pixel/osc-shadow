@@ -147,6 +147,9 @@ def ciclo_horario():
         import tend; tend.actualizar()
     except Exception: log("tend ERROR (no afecta al Shadow):", traceback.format_exc()[-300:])
     try:
+        import tend_eb; tend_eb.actualizar(tg.enviar)
+    except Exception: log("tend_eb ERROR (no afecta al Shadow):", traceback.format_exc()[-300:])
+    try:
         import explora; explora.actualizar(tg.enviar)
     except Exception: log("explora ERROR (no afecta al Shadow):", traceback.format_exc()[-300:])
     try:
@@ -255,6 +258,10 @@ def manejar(cmd):
         import regimen; return regimen.texto(len(p) > 1 and p[1].lower() == "todas")
     if c == "/regimen_csv":
         import regimen; tg.enviar_archivo("regimen.csv", regimen.csv_todo(), "Ciclos con régimen de BTC"); return "CSV de RÉGIMEN enviado."
+    if c == "/tend_eb":
+        import tend_eb; return tend_eb.texto()
+    if c == "/tend_eb_csv":
+        import tend_eb; tg.enviar_archivo("tend_eb.csv", tend_eb.csv_senales(), "Tendencia ETH/BTC"); return "CSV de tendencia ETH/BTC enviado."
     if c == "/tend":
         import tend; return tend.texto()
     if c == "/tend_csv":
@@ -294,7 +301,7 @@ def manejar(cmd):
     if c == "/velas_todas":
         threading.Thread(target=enviar_velas_todas, daemon=True).start()
         return "Armando el ZIP con las velas 1h de todas las monedas (tarda ~1 minuto)..."
-    if c == "/ayuda": return "/velas [moneda] · /velas_todas · /velas_huellas · /velas_rey · /liq [moneda] · /liq_csv · /velas_hist MONEDA AAAA-MM-DD [días] · /eth · /btc · /cand · /cand_csv · /resumen [días] · /abiertos · /csv · /mstrx · /mstrx_csv · /mstrx_res · /mstrx_ciclos · /patrones · /fr · /fr_abiertos · /fr_csv · /resp · /resp_csv · /r12 · /r12_csv · /q5 · /q5_csv · /tend · /tend_csv · /expl · /expl_csv · /op · /det · /det_csv · /maker · /maker_csv · /regimen [todas] · /regimen_csv · /estado_btc"
+    if c == "/ayuda": return "/velas [moneda] · /velas_todas · /velas_huellas · /velas_rey · /liq [moneda] · /liq_csv · /velas_hist MONEDA AAAA-MM-DD [días] · /eth · /btc · /cand · /cand_csv · /resumen [días] · /abiertos · /csv · /mstrx · /mstrx_csv · /mstrx_res · /mstrx_ciclos · /patrones · /fr · /fr_abiertos · /fr_csv · /resp · /resp_csv · /r12 · /r12_csv · /q5 · /q5_csv · /tend · /tend_csv · /expl · /expl_csv · /op · /det · /det_csv · /maker · /maker_csv · /regimen [todas] · /regimen_csv · /estado_btc · /tend_eb · /tend_eb_csv"
     return None
 
 def texto_candidatas():
@@ -332,6 +339,7 @@ def resumen_diario():
             import r12; tg.enviar(r12.texto())
             import q5; tg.enviar(q5.texto())
             import tend; tg.enviar(tend.texto())
+            import tend_eb; tg.enviar(tend_eb.texto())
             import explora; tg.enviar(explora.texto())
             import liquid; tg.enviar(liquid.texto())
         except Exception: log("resumen respiro ERROR:", traceback.format_exc()[-300:])
