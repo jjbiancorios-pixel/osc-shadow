@@ -69,6 +69,10 @@ def texto(todas=False):
     if mapa:
         f = max(mapa); g = mapa[f]
         l.append(f"Hoy (cierre {f}): BTC {g:+.1f}% en {DIAS} días → <b>{'BAJISTA' if g < UMBRAL else 'normal'}</b>")
+        try:
+            import miedo; h = miedo.fng_hoy()
+            if h: l.append(f"Fear &amp; Greed {h[0]}: <b>{h[1]}</b> ({escape(h[2])})")
+        except Exception: pass
     else:
         l.append("Todavía sin datos de BTC diarios."); return "\n".join(l)
     l.append("Resultado a 5x con 1% de margen por entrada, sin tope de ciclos.")
@@ -84,10 +88,13 @@ def texto(todas=False):
 
 def csv_todo():
     mapa = _mapa(); b = io.StringIO(); w = csv.writer(b)
-    w.writerow(["cfg", "sym", "side", "ini_utc", "fin_utc", "n_ent", "res", "pnl5", "cap_pct", "btc_chg60_dia_anterior", "regimen"])
+    try:
+        import miedo; fng = miedo.fng_mapa()
+    except Exception: fng = {}
+    w.writerow(["cfg", "sym", "side", "ini_utc", "fin_utc", "n_ent", "res", "pnl5", "cap_pct", "btc_chg60_dia_anterior", "regimen", "fng_dia_anterior"])
     for k in config.CONFIGS:
         for c in db.ciclos(k):
             d = str((pd.Timestamp(c['ini']) - pd.Timedelta(days=1)).date())
             w.writerow([k, c['sym'], c['side'], c['ini'], c['fin'], c['n_ent'], c['res'], round(c['pnl5'], 3),
-                        round(c['pnl5'] / 100 * c['n_ent'] * config.F_MARGEN * 100, 4), None if mapa.get(d) is None else round(mapa[d], 2), etiqueta(c['ini'], mapa)])
+                        round(c['pnl5'] / 100 * c['n_ent'] * config.F_MARGEN * 100, 4), None if mapa.get(d) is None else round(mapa[d], 2), etiqueta(c['ini'], mapa), fng.get(d)])
     return b.getvalue().encode()
