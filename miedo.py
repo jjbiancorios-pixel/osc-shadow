@@ -29,6 +29,7 @@ ESPERA = 7           # días mínimos entre compras
 TRAMO = 100.0        # USDT por compra
 TRAMOS = 10          # máximo de tramos (presupuesto 1.000 USDT por moneda)
 FEE = 0.001          # comisión spot por compra (0,1%)
+VENT_JUSTA = 90      # comparación justa: DCA semanal en ±90 días alrededor de cada compra (solo para evaluar, no decide)
 
 # ---------------------------------------------------------------- base de datos
 def init_tabla():
@@ -195,12 +196,25 @@ def historico(sym, umbral=UMBRAL, filtro=True):
             p = df.c.iloc[i]; fut = df.c.iloc[i + 1: i + 181]
             r = lambda n: (df.c.iloc[i + n] / p - 1) * 100 if i + n < len(df) else None
             compras.append({"fecha": str(df.index[i].date()), "precio": float(p), "fng": fng.get(str(df.index[i].date())),
-                            "r30": r(30), "r90": r(90), "r180": r(180), "caida": float((fut.min() / p - 1) * 100) if len(fut) else None})
+                            "r30": r(30), "r90": r(90), "r180": r(180), "caida": float((fut.min() / p - 1) * 100) if len(fut) else None,
+                            **_dca_local(df, i)})
             ult = i
     ini = min(f for f in fng); d = df[df.index >= pd.Timestamp(ini)]
     dca = d.c.iloc[::ESPERA]
     return {"compras": compras, "prom_regla": (len(compras) / sum(1 / c['precio'] for c in compras)) if compras else None,
             "prom_dca": len(dca) / float((1 / dca).sum()), "desde": ini, "n_dca": len(dca)}
+
+def _dca_local(df, i):
+    """DCA semanal en la ventana [d-90, d+90] (días a múltiplo de 7 de la compra, incluye d). Precio promedio = media armónica
+    (mismo USDT cada semana). ventaja = precio MIEDO / DCA local - 1 (negativo = MIEDO compra más barato).
+    Si la ventana todavía no terminó (faltan días después), no se cuenta."""
+    d = df.index[i]
+    if d + pd.Timedelta(days=VENT_JUSTA) > df.index[-1] or d - pd.Timedelta(days=VENT_JUSTA) < df.index[0]:
+        return {"dca_local": None, "ventaja": None}
+    w = df.c[(df.index >= d - pd.Timedelta(days=VENT_JUSTA)) & (df.index <= d + pd.Timedelta(days=VENT_JUSTA))]
+    w = w[((w.index - d).days % ESPERA) == 0]
+    dl = len(w) / float((1 / w).sum())
+    return {"dca_local": dl, "ventaja": (float(df.c.iloc[i]) / dl - 1) * 100}
 
 def _med(v):
     v = sorted(x for x in v if x is not None)
@@ -217,21 +231,36 @@ def texto_hist(sym="BTC"):
         if not cs: l.append(f"{nom}: 0 compras"); continue
         dif = 100 * (h['prom_regla'] / h['prom_dca'] - 1)
         fmt = lambda x: "—" if x is None else f"{x:+.0f}%"
-        l.append(f"{nom}: {len(cs)} compras · prom {h['prom_regla']:,.0f} vs DCA {h['prom_dca']:,.0f} ({dif:+.1f}%) · "
+        l.append("")
+        l.append(f"<b>{nom}</b>: {len(cs)} compras · prom {h['prom_regla']:,.0f} vs DCA total {h['prom_dca']:,.0f} ({dif:+.1f}%) · "
                  f"mediana 90d {fmt(_med([c['r90'] for c in cs]))} · 180d {fmt(_med([c['r180'] for c in cs]))} · "
                  f"peor caída posterior {fmt(min((c['caida'] for c in cs if c['caida'] is not None), default=None))}")
-    l.append(f"DCA = 1 compra cada {ESPERA} días desde {h['desde']}. Muestra chica: pocos episodios de miedo extremo.")
+        v = [c['ventaja'] for c in cs if c['ventaja'] is not None]; pend = len(cs) - len(v)
+        if v:
+            mej = sum(1 for x in v if x < 0)
+            l.append(f"⚖️ Justa vs DCA ±{VENT_JUSTA}d: mediana {_med(v):+.1f}% · promedio {sum(v)/len(v):+.1f}% · "
+                     f"más barato en {mej}/{len(v)}" + (f" · {pend} sin ventana completa" if pend else ""))
+            por = {}
+            for c in cs:
+                if c['ventaja'] is not None: por.setdefault(c['fecha'][:4], []).append(c['ventaja'])
+            l.append("Por año: " + " · ".join(f"{a}: {len(x)} ({sum(x)/len(x):+.0f}%)" for a, x in sorted(por.items())))
+        else:
+            l.append(f"⚖️ Justa vs DCA ±{VENT_JUSTA}d: sin compras con ventana completa")
+    l.append("")
+    l.append(f"DCA total = 1 compra cada {ESPERA} días desde {h['desde']} (sesgado por época). "
+             f"Justa = cada compra contra un DCA semanal de {VENT_JUSTA} días antes a {VENT_JUSTA} después; negativo = MIEDO compra más barato. "
+             f"Por año = compras (ventaja promedio). Muestra chica.")
     return "\n".join(l)
 
 def csv_todo():
     b = io.StringIO(); w = csv.writer(b)
-    w.writerow(["tipo", "sym", "estrategia", "fecha", "precio", "usdt", "moneda", "fng", "r30", "r90", "r180", "caida_max_180d"])
-    for o in _ops(): w.writerow(["vivo", o['sym'], o['estr'], o['fecha'], o['precio'], o['usdt'], round(o['moneda'], 8), o['fng'], "", "", "", ""])
+    w.writerow(["tipo", "sym", "estrategia", "fecha", "precio", "usdt", "moneda", "fng", "r30", "r90", "r180", "caida_max_180d", "dca_local_90d", "ventaja_pct"])
+    for o in _ops(): w.writerow(["vivo", o['sym'], o['estr'], o['fecha'], o['precio'], o['usdt'], round(o['moneda'], 8), o['fng'], "", "", "", "", "", ""])
     for sym in MONEDAS:
         h = historico(sym)
         for c in (h or {}).get("compras", []):
             w.writerow(["historico", sym, f"MIEDO<={UMBRAL}+filtro", c['fecha'], c['precio'], TRAMO, round(_compra(TRAMO, c['precio']), 8), c['fng'],
-                        *("" if c[k] is None else round(c[k], 2) for k in ("r30", "r90", "r180", "caida"))])
+                        *("" if c[k] is None else round(c[k], 2) for k in ("r30", "r90", "r180", "caida", "dca_local", "ventaja"))])
     w.writerow([]); w.writerow(["fecha", "fng"])
     for f, v in sorted(fng_mapa().items()): w.writerow([f, v])
     return b.getvalue().encode()
